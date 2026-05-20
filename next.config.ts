@@ -1,7 +1,9 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  experimental: {
+    // Required for Supabase SSR cookies in server components
+  },
+}
 
-export default nextConfig;
+export default nextConfig

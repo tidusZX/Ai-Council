@@ -1,65 +1,72 @@
-import Image from "next/image";
+import Link from 'next/link'
+import { COUNCIL_MEMBERS, CHAIRPERSON } from '@/lib/ai/council-members'
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="min-h-screen bg-zinc-950 text-white">
+      {/* Nav */}
+      <nav className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
+        <span className="font-bold text-lg tracking-tight">AI Council</span>
+        <div className="flex gap-3">
+          <Link
+            href="/login"
+            className="text-sm text-zinc-400 hover:text-white transition-colors px-4 py-2"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Sign in
+          </Link>
+          <Link
+            href="/signup"
+            className="text-sm bg-white text-zinc-900 font-medium px-4 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
           >
-            Documentation
-          </a>
+            Get started
+          </Link>
         </div>
-      </main>
-    </div>
-  );
+      </nav>
+
+      {/* Hero */}
+      <section className="max-w-4xl mx-auto px-6 py-24 text-center">
+        <div className="inline-flex items-center gap-2 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full px-3 py-1.5 mb-8">
+          <span>👑</span> Powered by Claude
+        </div>
+        <h1 className="text-5xl sm:text-6xl font-bold tracking-tight leading-tight mb-6">
+          Every decision deserves<br />
+          <span className="text-zinc-400">a full council.</span>
+        </h1>
+        <p className="text-lg text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          Submit any question, idea, or business decision. Five expert AI advisors respond from different angles — then the Chairperson synthesizes it into a clear recommendation.
+        </p>
+        <Link
+          href="/signup"
+          className="inline-flex items-center gap-2 bg-white text-zinc-900 font-semibold px-8 py-3.5 rounded-xl text-base hover:bg-zinc-100 transition-colors"
+        >
+          Convene your council →
+        </Link>
+      </section>
+
+      {/* Council preview */}
+      <section className="max-w-5xl mx-auto px-6 pb-24">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          {COUNCIL_MEMBERS.map((member) => (
+            <div
+              key={member.role}
+              className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 flex items-center gap-3"
+            >
+              <span className="text-2xl">{member.icon}</span>
+              <div>
+                <p className="text-sm font-semibold text-white">{member.name}</p>
+                <p className="text-xs text-zinc-500">{member.title}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border-2 border-amber-600/40 bg-amber-950/30 p-4 flex items-center gap-3">
+          <span className="text-2xl">{CHAIRPERSON.icon}</span>
+          <div>
+            <p className="text-sm font-bold text-amber-400">{CHAIRPERSON.name}</p>
+            <p className="text-xs text-zinc-500">{CHAIRPERSON.title} — synthesizes all perspectives into a final recommendation</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  )
 }
