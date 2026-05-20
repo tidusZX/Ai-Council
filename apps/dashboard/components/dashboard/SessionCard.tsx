@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { cn, formatRelativeTime, truncate } from '@/lib/utils'
-import type { Session } from '@/types/database'
+import type { Session } from '@shaq-os/database-types'
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', className: 'bg-zinc-100 text-zinc-600' },

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@shaq-os/supabase-client/server'
 import Link from 'next/link'
 import { SessionCard } from '@/components/dashboard/SessionCard'
 import { Button } from '@/components/ui/Button'

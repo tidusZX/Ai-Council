@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@shaq-os/supabase-client/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 

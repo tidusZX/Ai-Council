@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { CHAIRPERSON } from '@/lib/ai/council-members'
+import { CHAIRPERSON } from '@shaq-os/council-config'
 import ReactMarkdown from 'react-markdown'
 
 interface ChairpersonSummaryProps {

@@ -26,6 +26,15 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.187
         version: 3.0.187(react@19.2.4)(zod@4.4.3)
+      '@shaq-os/council-config':
+        specifier: workspace:*
+        version: link:../../packages/council-config
+      '@shaq-os/database-types':
+        specifier: workspace:*
+        version: link:../../packages/database-types
+      '@shaq-os/supabase-client':
+        specifier: workspace:*
+        version: link:../../packages/supabase-client
       '@supabase/ssr':
         specifier: ^0.10.3
         version: 0.10.3(@supabase/supabase-js@2.106.1)
@@ -105,6 +114,41 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@20.19.41)(jsdom@29.1.1)(vite@8.0.13(@types/node@20.19.41)(jiti@2.7.0))
+
+  packages/council-config:
+    dependencies:
+      '@shaq-os/database-types':
+        specifier: workspace:*
+        version: link:../database-types
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/database-types:
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/supabase-client:
+    dependencies:
+      '@shaq-os/database-types':
+        specifier: workspace:*
+        version: link:../database-types
+      '@supabase/ssr':
+        specifier: ^0.10.3
+        version: 0.10.3(@supabase/supabase-js@2.106.1)
+      '@supabase/supabase-js':
+        specifier: ^2.106.1
+        version: 2.106.1
+      next:
+        specifier: '>=15'
+        version: 16.2.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+    devDependencies:
+      typescript:
+        specifier: ^5
+        version: 5.9.3
 
 packages:
 

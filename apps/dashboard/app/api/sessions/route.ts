@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@shaq-os/supabase-client/server'
 import { generateSessionTitle } from '@/lib/utils'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'

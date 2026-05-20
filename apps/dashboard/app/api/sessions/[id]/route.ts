@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@shaq-os/supabase-client/server'
 import { NextResponse } from 'next/server'
 
 export async function GET(

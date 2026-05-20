@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import type { CouncilMemberConfig } from '@/lib/ai/council-members'
+import type { CouncilMemberConfig } from '@shaq-os/council-config'
 import ReactMarkdown from 'react-markdown'
 
 interface CouncilMemberCardProps {

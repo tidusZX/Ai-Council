@@ -3,7 +3,7 @@ import {
   COUNCIL_MEMBERS,
   CHAIRPERSON,
   getMemberConfig,
-} from '@/lib/ai/council-members'
+} from '@shaq-os/council-config'
 
 describe('COUNCIL_MEMBERS', () => {
   it('has 5 members', () => {

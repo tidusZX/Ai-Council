@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { COUNCIL_MEMBERS, CHAIRPERSON } from '@/lib/ai/council-members'
+import { COUNCIL_MEMBERS, CHAIRPERSON } from '@shaq-os/council-config'
 
 export default function Home() {
   return (

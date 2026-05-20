@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@shaq-os/supabase-client/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CouncilSession } from '@/components/council/CouncilSession'

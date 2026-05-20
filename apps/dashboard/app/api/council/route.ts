@@ -1,9 +1,9 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { streamText } from 'ai'
-import { createClient } from '@/lib/supabase/server'
-import { COUNCIL_MEMBERS, CHAIRPERSON } from '@/lib/ai/council-members'
-import type { CouncilRole } from '@/types/database'
+import { createClient } from '@shaq-os/supabase-client/server'
+import { COUNCIL_MEMBERS, CHAIRPERSON } from '@shaq-os/council-config'
+import type { CouncilRole } from '@shaq-os/database-types'
 import { z } from 'zod'
 
 export const maxDuration = 60

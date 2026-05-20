@@ -1,4 +1,4 @@
-import type { CouncilRole } from '@/types/database'
+import type { CouncilRole } from '@shaq-os/database-types'
 
 export interface CouncilMemberConfig {
   role: CouncilRole

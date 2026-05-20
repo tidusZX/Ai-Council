@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { COUNCIL_MEMBERS, CHAIRPERSON } from '@/lib/ai/council-members'
+import { COUNCIL_MEMBERS, CHAIRPERSON } from '@shaq-os/council-config'
 import { CouncilMemberCard } from './CouncilMemberCard'
 import { ChairpersonSummary } from './ChairpersonSummary'
-import type { Message, Session } from '@/types/database'
+import type { Message, Session } from '@shaq-os/database-types'
 
 interface CouncilSessionProps {
   session: Session
