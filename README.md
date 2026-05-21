@@ -108,7 +108,7 @@ Dockerfile stub at `services/<name>/Dockerfile`.
 
 ## Conventions
 
-- **Node 20 LTS** (see `.nvmrc`). Pnpm 11.1.3 pinned.
+- **Node 22 LTS** (see `.nvmrc`). Pnpm 11.1.3 pinned (requires Node ≥ 22.13).
 - **Path-aliased imports** inside `apps/dashboard`: use `@/` for app-local code,
   `@shaq-os/<pkg>` for shared packages.
 - **Workspace packages export TypeScript source directly** (no build step) —
