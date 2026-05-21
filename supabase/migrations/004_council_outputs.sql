@@ -11,7 +11,7 @@
 -- to a session and optionally tied to a project.
 -- ---------------------------------------------------------------------------
 create table if not exists public.council_outputs (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   session_id  uuid not null references public.sessions(id) on delete cascade,
   project_id  uuid references public.projects(id) on delete set null,
   kind        text not null check (kind in (
@@ -37,7 +37,7 @@ create index if not exists council_outputs_kind_idx       on public.council_outp
 -- reports: generated periodic outputs
 -- ---------------------------------------------------------------------------
 create table if not exists public.reports (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   owner_id      uuid not null references auth.users(id) on delete cascade,
   kind          text not null check (kind in ('weekly_trends','lead_pulse','content_audit','revenue_pulse','other')),
   generated_at  timestamptz not null default now(),

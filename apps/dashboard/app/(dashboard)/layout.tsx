@@ -41,6 +41,12 @@ export default async function DashboardLayout({
             >
               Sessions
             </Link>
+            <Link
+              href="/references/analyze"
+              className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              Analyze Videos
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs text-zinc-400 hidden sm:block">
