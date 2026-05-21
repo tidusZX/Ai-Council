@@ -1,0 +1,39 @@
+{
+  "name": "@shaq-os/supabase-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Supabase client factories (browser, SSR server, service role) typed with the SHAQ OS Database schema.",
+  "exports": {
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "default": "./src/server.ts"
+    },
+    "./service": {
+      "types": "./src/service.ts",
+      "default": "./src/service.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@shaq-os/database-types": "workspace:*",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.1"
+  },
+  "peerDependencies": {
+    "next": ">=15"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
