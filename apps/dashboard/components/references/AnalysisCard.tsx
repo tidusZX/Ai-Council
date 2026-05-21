@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { VideoAnalysis, VideoAnalysisStatus } from '@shaq-os/database-types'
 import { cn, formatRelativeTime } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
 
 const STATUS_LABEL: Record<VideoAnalysisStatus, { label: string; className: string }> = {
   queued: { label: 'Queued', className: 'bg-zinc-100 text-zinc-600' },
@@ -202,13 +203,17 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
               ) : null}
             </>
           ) : null}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
-          >
-            {expanded ? '← Collapse' : 'Show full analysis →'}
-          </button>
+          <div className="pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setExpanded((v) => !v)}
+              className="w-full"
+            >
+              {expanded ? '← Collapse' : 'Show full analysis →'}
+            </Button>
+          </div>
         </div>
       ) : null}
 
