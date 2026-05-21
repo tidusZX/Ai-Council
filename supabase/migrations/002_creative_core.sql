@@ -9,7 +9,7 @@
 -- directly against auth.users for simpler RLS).
 -- ---------------------------------------------------------------------------
 create table if not exists public.creators (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   owner_id      uuid not null unique references auth.users(id) on delete cascade,
   display_name  text not null,
   bio           text,
@@ -24,7 +24,7 @@ create index if not exists creators_owner_id_idx on public.creators(owner_id);
 -- projects: a creative engagement (reel, shoot, campaign, etc.)
 -- ---------------------------------------------------------------------------
 create table if not exists public.projects (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   owner_id    uuid not null references auth.users(id) on delete cascade,
   title       text not null,
   type        text not null check (type in ('reel','photo','campaign','video','other')),
@@ -42,7 +42,7 @@ create index if not exists projects_status_idx on public.projects(status);
 -- Renamed from "references" to avoid SQL reserved-word ambiguity.
 -- ---------------------------------------------------------------------------
 create table if not exists public.creative_references (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   owner_id        uuid not null references auth.users(id) on delete cascade,
   source_url      text,
   source_platform text check (source_platform in ('instagram','tiktok','youtube','pinterest','vimeo','web','other')),
@@ -65,7 +65,7 @@ create index if not exists creative_references_embedding_idx
 -- prompts: reusable AI prompts (image, video, council, etc.)
 -- ---------------------------------------------------------------------------
 create table if not exists public.prompts (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   owner_id    uuid not null references auth.users(id) on delete cascade,
   title       text not null,
   body        text not null,
@@ -89,7 +89,7 @@ create index if not exists prompts_embedding_idx
 -- duration, reference_ids, etc.) without future schema migrations.
 -- ---------------------------------------------------------------------------
 create table if not exists public.shotlists (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   project_id  uuid not null references public.projects(id) on delete cascade,
   title       text not null,
   shots       jsonb not null default '[]'::jsonb,

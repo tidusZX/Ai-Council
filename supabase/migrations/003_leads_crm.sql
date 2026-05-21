@@ -6,7 +6,7 @@
 -- clients: businesses that have already engaged Shaq
 -- ---------------------------------------------------------------------------
 create table if not exists public.clients (
-  id             uuid primary key default uuid_generate_v4(),
+  id             uuid primary key default gen_random_uuid(),
   owner_id       uuid not null references auth.users(id) on delete cascade,
   name           text not null,
   business_type  text,
@@ -25,7 +25,7 @@ create index if not exists clients_name_idx on public.clients(name);
 -- (branding score, visual quality notes, positioning gaps, etc.)
 -- ---------------------------------------------------------------------------
 create table if not exists public.leads (
-  id                 uuid primary key default uuid_generate_v4(),
+  id                 uuid primary key default gen_random_uuid(),
   owner_id           uuid not null references auth.users(id) on delete cascade,
   business_name      text not null,
   ig_handle          text,
@@ -46,7 +46,7 @@ create index if not exists leads_opportunity_score_idx on public.leads(opportuni
 -- outreach_logs: every outbound touchpoint to a lead
 -- ---------------------------------------------------------------------------
 create table if not exists public.outreach_logs (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   lead_id       uuid not null references public.leads(id) on delete cascade,
   channel       text not null check (channel in ('email','instagram_dm','whatsapp','sms','call','linkedin','other')),
   message_body  text not null,

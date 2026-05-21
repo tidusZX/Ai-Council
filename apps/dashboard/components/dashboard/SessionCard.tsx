@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { cn, formatRelativeTime, truncate } from '@/lib/utils'
-import type { Session } from '@shaq-os/database-types'
+import type { Session, SessionStatus } from '@shaq-os/database-types'
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<SessionStatus, { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'bg-zinc-100 text-zinc-600' },
   processing: { label: 'Processing', className: 'bg-blue-100 text-blue-700' },
   complete: { label: 'Complete', className: 'bg-green-100 text-green-700' },
@@ -16,7 +16,8 @@ interface SessionCardProps {
 }
 
 export function SessionCard({ session }: SessionCardProps) {
-  const statusConfig = STATUS_CONFIG[session.status]
+  const statusConfig =
+    STATUS_CONFIG[session.status as SessionStatus] ?? STATUS_CONFIG.pending
 
   return (
     <Link href={`/sessions/${session.id}`}>
