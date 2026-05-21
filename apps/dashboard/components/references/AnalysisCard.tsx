@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { VideoAnalysis, VideoAnalysisStatus } from '@shaq-os/database-types'
 import { cn, formatRelativeTime } from '@/lib/utils'
 
@@ -26,7 +27,10 @@ interface AnalysisShape {
 }
 
 export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const status = row.status as VideoAnalysisStatus
   const statusConfig = STATUS_LABEL[status] ?? STATUS_LABEL.queued
   const meta = (row.raw_metadata ?? {}) as Record<string, unknown>
@@ -35,8 +39,27 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
     (typeof meta.uploader === 'string' && `@${meta.uploader}`) ||
     new URL(row.source_url).hostname.replace(/^www\./, '')
   const analysis = (row.analysis ?? null) as AnalysisShape | null
+  const keyframes = (row.keyframe_paths ?? []) as string[]
+  const hasKeyframes = keyframes.length > 0
   const isComplete = status === 'complete' && analysis
   const isError = status === 'error'
+
+  async function handleDelete() {
+    if (deleting) return
+    if (!confirm('Delete this analysis? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/video-jobs/${row.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.message || `Delete failed: ${res.status}`)
+      }
+      router.refresh()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+      setDeleting(false)
+    }
+  }
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-5">
@@ -72,6 +95,15 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
             {row.source_url}
           </a>
         </div>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="shrink-0 text-xs text-zinc-400 hover:text-red-700 transition-colors px-2 py-1"
+          aria-label="Delete analysis"
+        >
+          {deleting ? 'Deleting…' : 'Delete'}
+        </button>
       </div>
 
       {/* Error message */}
@@ -91,27 +123,34 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
       {/* Completed analysis */}
       {isComplete && analysis ? (
         <div className="mt-4 space-y-3">
+          {/* Keyframe strip — always visible when complete */}
+          {hasKeyframes ? (
+            <div>
+              <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
+                Keyframes ({keyframes.length})
+              </h4>
+              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                {keyframes.map((_, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={`/api/keyframes/${row.id}/${i}`}
+                    alt={`Frame ${i + 1}`}
+                    className="h-24 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100"
+                    loading="lazy"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <Section title="Hook" body={analysis.hook} />
           {expanded ? (
             <>
               <Section title="Structure" body={analysis.structure} />
               <Section title="Pacing" body={analysis.pacing} />
               {analysis.shot_list && analysis.shot_list.length > 0 ? (
-                <div>
-                  <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                    Shot list
-                  </h4>
-                  <ol className="text-sm text-zinc-700 space-y-1 pl-5 list-decimal">
-                    {analysis.shot_list.map((shot) => (
-                      <li key={shot.shot_n}>
-                        {shot.description}
-                        {typeof shot.est_duration_s === 'number'
-                          ? ` (${shot.est_duration_s.toFixed(1)}s)`
-                          : ''}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
+                <ShotList shots={analysis.shot_list} keyframes={keyframes} jobId={row.id} />
               ) : null}
               {analysis.captions_used ? (
                 <Section title="Captions" body={analysis.captions_used} />
@@ -180,6 +219,70 @@ function BulletSection({ title, items }: { title: string; items: string[] }) {
           <li key={i}>{item}</li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+/**
+ * Shot list, with each entry paired to the closest keyframe by relative
+ * position. The keyframes were extracted evenly across the video's
+ * duration, so shot N out of M shots maps roughly to keyframe
+ * round((N-1) * (K-1) / (M-1)).
+ */
+function ShotList({
+  shots,
+  keyframes,
+  jobId,
+}: {
+  shots: Array<{ shot_n: number; description: string; est_duration_s?: number }>
+  keyframes: string[]
+  jobId: string
+}) {
+  function frameIndexForShot(i: number, total: number, frames: number) {
+    if (frames <= 0 || total <= 1) return 0
+    return Math.min(frames - 1, Math.round((i * (frames - 1)) / (total - 1)))
+  }
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
+        Shot list
+      </h4>
+      <ol className="space-y-2">
+        {shots.map((shot, i) => {
+          const frameIdx = frameIndexForShot(i, shots.length, keyframes.length)
+          const hasFrame = keyframes.length > 0
+          return (
+            <li
+              key={shot.shot_n}
+              className="flex gap-3 items-start bg-zinc-50 rounded-md p-2"
+            >
+              {hasFrame ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/keyframes/${jobId}/${frameIdx}`}
+                  alt={`Approximate frame for shot ${shot.shot_n}`}
+                  className="h-16 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100"
+                  loading="lazy"
+                />
+              ) : null}
+              <div className="text-sm text-zinc-700 leading-snug">
+                <span className="font-semibold text-zinc-900">{shot.shot_n}.</span>{' '}
+                {shot.description}
+                {typeof shot.est_duration_s === 'number' ? (
+                  <span className="text-zinc-400">
+                    {' '}
+                    ({shot.est_duration_s.toFixed(1)}s)
+                  </span>
+                ) : null}
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+      <p className="mt-1.5 text-[10px] text-zinc-400">
+        Frames are approximate — keyframes were sampled at fixed intervals, not at
+        shot boundaries.
+      </p>
     </div>
   )
 }
