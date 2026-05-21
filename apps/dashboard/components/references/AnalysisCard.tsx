@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { VideoAnalysis, VideoAnalysisStatus } from '@shaq-os/database-types'
 import { cn, formatRelativeTime } from '@/lib/utils'
@@ -30,6 +30,7 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
 
   const status = row.status as VideoAnalysisStatus
   const statusConfig = STATUS_LABEL[status] ?? STATUS_LABEL.queued
@@ -43,6 +44,16 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
   const hasKeyframes = keyframes.length > 0
   const isComplete = status === 'complete' && analysis
   const isError = status === 'error'
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    if (!lightboxSrc) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setLightboxSrc(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxSrc])
 
   async function handleDelete() {
     if (deleting) return
@@ -130,16 +141,20 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
                 Keyframes ({keyframes.length})
               </h4>
               <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                {keyframes.map((_, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={i}
-                    src={`/api/keyframes/${row.id}/${i}`}
-                    alt={`Frame ${i + 1}`}
-                    className="h-24 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100"
-                    loading="lazy"
-                  />
-                ))}
+                {keyframes.map((_, i) => {
+                  const src = `/api/keyframes/${row.id}/${i}`
+                  return (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`Frame ${i + 1}`}
+                      onClick={() => setLightboxSrc(src)}
+                      className="h-24 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100 cursor-zoom-in hover:border-zinc-400 transition-colors"
+                      loading="lazy"
+                    />
+                  )
+                })}
               </div>
             </div>
           ) : null}
@@ -150,7 +165,12 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
               <Section title="Structure" body={analysis.structure} />
               <Section title="Pacing" body={analysis.pacing} />
               {analysis.shot_list && analysis.shot_list.length > 0 ? (
-                <ShotList shots={analysis.shot_list} keyframes={keyframes} jobId={row.id} />
+                <ShotList
+                  shots={analysis.shot_list}
+                  keyframes={keyframes}
+                  jobId={row.id}
+                  onZoom={setLightboxSrc}
+                />
               ) : null}
               {analysis.captions_used ? (
                 <Section title="Captions" body={analysis.captions_used} />
@@ -188,6 +208,32 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
             className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
           >
             {expanded ? '← Collapse' : 'Show full analysis →'}
+          </button>
+        </div>
+      ) : null}
+
+      {/* Lightbox overlay */}
+      {lightboxSrc ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setLightboxSrc(null)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxSrc}
+            alt="Enlarged keyframe"
+            className="max-h-[92vh] max-w-[92vw] rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxSrc(null)}
+            aria-label="Close"
+            className="fixed top-4 right-4 text-white/80 hover:text-white text-3xl leading-none"
+          >
+            ×
           </button>
         </div>
       ) : null}
@@ -233,10 +279,12 @@ function ShotList({
   shots,
   keyframes,
   jobId,
+  onZoom,
 }: {
   shots: Array<{ shot_n: number; description: string; est_duration_s?: number }>
   keyframes: string[]
   jobId: string
+  onZoom: (src: string) => void
 }) {
   function frameIndexForShot(i: number, total: number, frames: number) {
     if (frames <= 0 || total <= 1) return 0
@@ -261,7 +309,8 @@ function ShotList({
                 <img
                   src={`/api/keyframes/${jobId}/${frameIdx}`}
                   alt={`Approximate frame for shot ${shot.shot_n}`}
-                  className="h-16 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100"
+                  onClick={() => onZoom(`/api/keyframes/${jobId}/${frameIdx}`)}
+                  className="h-16 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100 cursor-zoom-in hover:border-zinc-400 transition-colors"
                   loading="lazy"
                 />
               ) : null}
