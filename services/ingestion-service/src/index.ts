@@ -1,8 +1,19 @@
+// Load .env.local before anything reads process.env. Production deployments
+// inject env vars via the platform (Zo / Docker) and the file is absent —
+// dotenv silently no-ops in that case.
+import { config as dotenvConfig } from 'dotenv'
+dotenvConfig({ path: '.env.local', quiet: true })
+
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
+import { z } from 'zod'
+import { loadEnv } from './env'
+import { createJob, reapStuckJobs } from './db'
+import { runPipeline, inferPlatform } from './pipeline'
 
 const SERVICE_NAME = 'ingestion-service'
-const DEFAULT_PORT = 3001
+
+const env = loadEnv()
 
 const app = new Hono()
 
@@ -13,13 +24,46 @@ app.get('/health', (c) =>
 app.get('/', (c) =>
   c.json({
     service: SERVICE_NAME,
-    status: 'stub',
-    intent: 'Video ingestion via yt-dlp + ffmpeg. See Video Pipeline Plan.',
+    status: 'live',
+    intent: 'Video ingestion via yt-dlp + ffmpeg. Posts to analysis-service when done.',
   })
 )
 
-const port = Number(process.env.PORT ?? DEFAULT_PORT)
-serve({ fetch: app.fetch, port }, ({ port }) => {
+const JobsBodySchema = z.object({
+  url: z.url(),
+  owner_id: z.uuid(),
+})
+
+app.post('/jobs', async (c) => {
+  const parsed = JobsBodySchema.safeParse(await c.req.json().catch(() => ({})))
+  if (!parsed.success) {
+    return c.json({ error: 'invalid body', details: z.treeifyError(parsed.error) }, 400)
+  }
+
+  const { url, owner_id } = parsed.data
+  const platform = inferPlatform(url)
+
+  let jobId: string
+  try {
+    jobId = await createJob({ owner_id, source_url: url, source_platform: platform })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return c.json({ error: 'failed to create job', message }, 500)
+  }
+
+  // Fire and forget — pipeline updates the row as it progresses. The
+  // dashboard subscribes to row changes via Supabase realtime.
+  void runPipeline({ job_id: jobId, url, owner_id })
+
+  return c.json({ job_id: jobId, status: 'queued' }, 202)
+})
+
+serve({ fetch: app.fetch, port: env.PORT }, async ({ port }) => {
   // eslint-disable-next-line no-console
   console.log(`[${SERVICE_NAME}] listening on http://localhost:${port}`)
+  const reaped = await reapStuckJobs()
+  if (reaped > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[${SERVICE_NAME}] reaped ${reaped} stuck job(s) on boot`)
+  }
 })
