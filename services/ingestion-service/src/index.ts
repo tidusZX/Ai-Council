@@ -1,8 +1,10 @@
 // Load .env.local before anything reads process.env. Production deployments
 // inject env vars via the platform (Zo / Docker) and the file is absent —
 // dotenv silently no-ops in that case.
+// `override: true` so service-local values win over shell-exported vars
+// (e.g. a globally-exported empty ANTHROPIC_API_KEY would otherwise persist).
 import { config as dotenvConfig } from 'dotenv'
-dotenvConfig({ path: '.env.local', quiet: true })
+dotenvConfig({ path: '.env.local', quiet: true, override: true })
 
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
