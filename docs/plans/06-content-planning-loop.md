@@ -45,6 +45,33 @@ INPUTS
   - Avoid recently-posted clients (look back 30 days via Blotato history)
 - **Carta is ignored** — added to the photo-qualifier excluded-client list permanently
 
+## The scoring rubric (designed by the Council in session 68b41f4f-bee1-4fb6-b67a-ea403cd144af on 2026-05-23)
+
+Every candidate post idea is scored on three axes. Sum = total (1–8). Planner prioritises 7–8, deprioritises <5.
+
+**Axis 1 — ICP Signal (1–3):** *Does this speak to a mid-sized SG F&B or product brand's buying context?*
+- 1: Generic creative/marketing content; could apply to any industry. *"How we approach brand consistency"*
+- 2: References F&B/product work but the insight isn't industry-specific. *"Carousel we made for a local F&B client"*
+- 3: Built around a pain point native to F&B or product brands: seasonal campaigns, product launches, menu storytelling, SKU differentiation, retail shelf presence, distributor-facing brand materials. *"How a hawker-to-restaurant brand repositioned for dine-in spend post-COVID"*
+
+**Axis 2 — Proof Density (1–3):** *Does it demonstrate a real outcome or just process/aesthetic?*
+- 1: No client outcome referenced. Process/aesthetic only.
+- 2: References a real client/project, but the outcome is qualitative or vague ("client loved it", "stronger brand presence").
+- 3: Specific, verifiable outcome — a metric (saves rate, follower growth, sell-through), a visible transformation (before/after with context), or a named business result. *"Packaging redesign contributed to 40% increase in retail reorder rate within 60 days"*
+
+**Axis 3 — Format Leverage (1–2):** *Does the format maximise reach + save behavior on Instagram?*
+- 1: Single image/static post. Lower algorithmic reach.
+- 2: Carousel (3+ slides). Higher save rate, extended dwell time. *Bonus:* flag (without changing the number) if the carousel has a clear narrative arc (problem → process → result) vs a gallery dump.
+
+**Special signal — "first-post candidate":** any post scoring 3 on ICP Signal AND 3 on Proof Density is the highest-conversion combination. Surface separately regardless of total score; this is the post that gets posted FIRST in the month.
+
+**Monthly arc structure** (Council consensus across all 5 members):
+> credibility anchor → proof → process → soft CTA
+
+Apply this as the rough sequence: lead with the strongest credibility post (highest ICP+Proof combo), follow with proof-density posts, then process/educational, and close the month with a soft CTA / discovery-call invite post.
+
+**Conversion-hook rule:** at least 2 of the 10 monthly posts must contain a conversion mechanism (DM prompt, direct question to the reader, lead magnet, discovery call offer). The Critic's hard line: *"Pretty posts without conversion architecture are brand awareness, not lead generation."*
+
 ---
 
 ## Reuse map (what already exists)
