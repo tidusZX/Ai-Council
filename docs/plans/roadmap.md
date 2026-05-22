@@ -123,7 +123,8 @@ Shaq confirmed he has 2 weeks of content already done. That changes the calculus
 | 1 | **Plan 04 — Lead Finder MVP** (Phases 1–4) | ~7 hrs | Direct path to $10k MRR. Zero runway here. | ✅ Shipped 2026-05-22 |
 | 2 | AI Council quick audit | ~15 min | Cheap, frees mental load. | ✅ Passed 2026-05-22 |
 | 3 | Confirm Photo Qualifier `analyse` produced ideas + push the 15 non-Carta to Notion | ~30 min | Manual content workflow holds until Plan 06 ships. | 🟡 Pending |
-| 4 | **Plan 04 Phase 5+6** — outreach drafting + 3 real leads | ~2.5 hrs | Finishes Plan 04. Outreach drafting via a new `outreach_writer` persona. | Next session |
+| 4 | **Plan 04 Phase 5** — outreach drafting | ~1.5 hrs | Outreach drafting via a new `outreach_writer` persona. | ✅ Shipped 2026-05-22 |
+| 4b | **Plan 04 Phase 6** — start outreach with existing 30-prospect list | ~30 min setup, ongoing usage | Deferred until 1–2 weeks of active social-media posting. Cold DMs land 3× better when the target lands on a fresh, professional feed. Shaq has a 30-prospect list ready from prior work. | Deferred — kick off ~2026-06-05 |
 | 5 | **Plan 06A — AI Council Follow-up Discussion** | ~3–5 hrs | Currently Council is one-shot (verdict, then frozen). Adding follow-up dialogue improves daily Council usage AND unblocks Plan 06's iterative plan review UX. | Queued |
 | 6 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Run once Lead Finder is generating leads and Council can be discussed with. | Queued |
 | 7 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. | Backlog |
