@@ -1,0 +1,30 @@
+app = "shaq-os-analysis"
+primary_region = "sin"
+
+[build]
+  # Dockerfile + build context are supplied via CLI flags on `fly deploy`
+  # because we need the build context to be the monorepo root.
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3002"
+
+[http_service]
+  internal_port = 3002
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpus = 1

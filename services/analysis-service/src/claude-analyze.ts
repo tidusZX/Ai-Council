@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { readFile } from 'node:fs/promises'
 
 const SYSTEM_PROMPT = `You are a world-class viral content analyst. You study TikTok, Instagram Reels, and YouTube Shorts to understand what makes them spread.
 
@@ -90,24 +89,43 @@ function client() {
 }
 
 /**
- * Run the Claude vision pass over (transcript + 4 sampled keyframes) and
- * return the structured analysis JSON the tool emits.
+ * Fetch a public image URL and return its bytes as a base64 string + media type.
+ */
+async function fetchAsBase64(url: string): Promise<{ data: string; mediaType: string }> {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`keyframe fetch ${url} returned ${res.status}`)
+  }
+  const mediaType = res.headers.get('content-type') ?? 'image/jpeg'
+  const buf = Buffer.from(await res.arrayBuffer())
+  return { data: buf.toString('base64'), mediaType }
+}
+
+/**
+ * Run the Claude vision pass over (transcript + 4 sampled keyframe URLs)
+ * and return the structured analysis JSON.
  */
 export async function analyzeVideo(args: {
   transcript: string
-  keyframePaths: string[]
+  keyframeUrls: string[]
 }): Promise<Record<string, unknown>> {
-  // Sample 4 frames evenly across the supplied set.
-  const sampled = sampleEvenly(args.keyframePaths, 4)
+  const sampled = sampleEvenly(args.keyframeUrls, 4)
   const imageBlocks: Anthropic.ImageBlockParam[] = await Promise.all(
-    sampled.map(async (p) => ({
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/jpeg',
-        data: (await readFile(p)).toString('base64'),
-      },
-    }))
+    sampled.map(async (url) => {
+      const { data, mediaType } = await fetchAsBase64(url)
+      return {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: (mediaType.includes('png')
+            ? 'image/png'
+            : mediaType.includes('webp')
+              ? 'image/webp'
+              : 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp',
+          data,
+        },
+      }
+    })
   )
 
   const model = process.env.ANALYSIS_MODEL || 'claude-sonnet-4-5'

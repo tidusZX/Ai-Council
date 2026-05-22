@@ -18,6 +18,7 @@
     "@shaq-os/supabase-client": "workspace:*",
     "dotenv": "^16.4.0",
     "hono": "^4.6.0",
+    "openai": "^4.71.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -1,20 +1,30 @@
-# SHAQ OS analysis-service — STUB Dockerfile.
-# This builds the service in isolation. For a production monorepo Docker
-# build that fully respects workspace deps, see services/README (TBD).
+# Production Dockerfile for analysis-service.
+# Built from the monorepo root:
+#   docker build -f services/analysis-service/Dockerfile .
+#
+# esbuild bundles the whole service into a single dist/index.js. No
+# ffmpeg/yt-dlp here — analysis-service is pure HTTP to Anthropic +
+# Supabase Storage fetches.
 
-FROM node:20-alpine AS build
-WORKDIR /app
+# ───── 1. build stage ────────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS build
+WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@11.1.3 --activate
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
-COPY services/analysis-service ./services/analysis-service
-RUN pnpm install --frozen-lockfile --filter analysis-service...
+COPY . .
+RUN pnpm install --frozen-lockfile
 RUN pnpm --filter analysis-service build
 
-FROM node:20-alpine AS runtime
+# ───── 2. runtime stage ──────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/services/analysis-service/dist ./dist
-COPY --from=build /app/services/analysis-service/node_modules ./node_modules
-COPY --from=build /app/services/analysis-service/package.json ./package.json
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /repo/services/analysis-service/dist/index.js ./index.js
+
+ENV NODE_ENV=production \
+    PORT=3002
+
 EXPOSE 3002
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]

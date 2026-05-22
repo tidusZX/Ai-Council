@@ -6,6 +6,21 @@ import type { VideoAnalysis, VideoAnalysisStatus } from '@shaq-os/database-types
 import { cn, formatRelativeTime } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 
+const KEYFRAME_BUCKET = 'video-keyframes'
+
+/**
+ * Build a public Supabase Storage URL from a keyframe path. If the path
+ * already looks like a full URL (e.g. legacy /tmp absolute paths from
+ * pre-Plan-03 rows), just return it — those will 404 in the browser
+ * but won't crash the page.
+ */
+function keyframeUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!base) return path
+  return `${base}/storage/v1/object/public/${KEYFRAME_BUCKET}/${path}`
+}
+
 const STATUS_LABEL: Record<VideoAnalysisStatus, { label: string; className: string }> = {
   queued: { label: 'Queued', className: 'bg-zinc-100 text-zinc-600' },
   downloading: { label: 'Downloading', className: 'bg-blue-100 text-blue-700' },
@@ -143,7 +158,7 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
               </h4>
               <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
                 {keyframes.map((_, i) => {
-                  const src = `/api/keyframes/${row.id}/${i}`
+                  const src = keyframeUrl(keyframes[i]!)
                   return (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -312,9 +327,9 @@ function ShotList({
               {hasFrame ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={`/api/keyframes/${jobId}/${frameIdx}`}
+                  src={keyframeUrl(keyframes[frameIdx]!)}
                   alt={`Approximate frame for shot ${shot.shot_n}`}
-                  onClick={() => onZoom(`/api/keyframes/${jobId}/${frameIdx}`)}
+                  onClick={() => onZoom(keyframeUrl(keyframes[frameIdx]!))}
                   className="h-16 w-auto rounded-md border border-zinc-200 shrink-0 bg-zinc-100 cursor-zoom-in hover:border-zinc-400 transition-colors"
                   loading="lazy"
                 />

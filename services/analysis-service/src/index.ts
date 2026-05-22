@@ -1,6 +1,4 @@
 // Load .env.local before any other import that reads process.env.
-// `override: true` because the user's shell may have an empty
-// ANTHROPIC_API_KEY exported from .zshrc that would otherwise win.
 import { config as dotenvConfig } from 'dotenv'
 dotenvConfig({ path: '.env.local', quiet: true, override: true })
 
@@ -25,14 +23,22 @@ app.get('/', (c) =>
     service: SERVICE_NAME,
     status: 'live',
     intent:
-      'Whisper transcription + Claude vision analysis. Called by ingestion-service.',
+      'Claude vision analysis over a transcript + 4 keyframe URLs. Called by ingestion-service.',
   })
 )
 
+// Shared-secret auth on /process
+app.use('/process', async (c, next) => {
+  if (c.req.header('x-api-key') !== env.ANALYSIS_API_KEY) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  await next()
+})
+
 const ProcessBodySchema = z.object({
   job_id: z.uuid(),
-  video_path: z.string().min(1),
-  keyframe_paths: z.array(z.string()).min(1),
+  transcript: z.string(),
+  keyframe_urls: z.array(z.url()).min(1),
 })
 
 app.post('/process', async (c) => {

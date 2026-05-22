@@ -170,9 +170,6 @@ importers:
       hono:
         specifier: ^4.6.0
         version: 4.12.21
-      openai:
-        specifier: ^4.71.0
-        version: 4.104.0(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -180,6 +177,9 @@ importers:
       '@types/node':
         specifier: ^20
         version: 20.19.41
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
       tsx:
         specifier: ^4.20.0
         version: 4.22.3
@@ -223,6 +223,9 @@ importers:
       hono:
         specifier: ^4.6.0
         version: 4.12.21
+      openai:
+        specifier: ^4.71.0
+        version: 4.104.0(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
