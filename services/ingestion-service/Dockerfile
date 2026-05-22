@@ -1,20 +1,38 @@
-# SHAQ OS ingestion-service — STUB Dockerfile.
-# This builds the service in isolation. For a production monorepo Docker
-# build that fully respects workspace deps, see services/README (TBD).
+# Production Dockerfile for ingestion-service.
+# Built from the monorepo root:
+#   docker build -f services/ingestion-service/Dockerfile .
+#
+# esbuild bundles the entire service into a single dist/index.js with all
+# dependencies inlined — no node_modules needed at runtime.
 
-FROM node:20-alpine AS build
-WORKDIR /app
+# ───── 1. build stage ────────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS build
+WORKDIR /repo
+
 RUN corepack enable && corepack prepare pnpm@11.1.3 --activate
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
-COPY services/ingestion-service ./services/ingestion-service
-RUN pnpm install --frozen-lockfile --filter ingestion-service...
+
+COPY . .
+RUN pnpm install --frozen-lockfile
+
+# esbuild bundle → services/ingestion-service/dist/index.js
 RUN pnpm --filter ingestion-service build
 
-FROM node:20-alpine AS runtime
+# ───── 2. runtime stage ──────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/services/ingestion-service/dist ./dist
-COPY --from=build /app/services/ingestion-service/node_modules ./node_modules
-COPY --from=build /app/services/ingestion-service/package.json ./package.json
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg python3 ca-certificates curl \
+ && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+ && chmod +x /usr/local/bin/yt-dlp \
+ && apt-get purge -y --auto-remove curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /repo/services/ingestion-service/dist/index.js ./index.js
+
+ENV NODE_ENV=production \
+    PORT=3001 \
+    INGESTION_TMP_DIR=/tmp/shaq-os/ingestion
+
 EXPOSE 3001
-CMD ["node", "dist/index.js"]
+CMD ["node", "index.js"]

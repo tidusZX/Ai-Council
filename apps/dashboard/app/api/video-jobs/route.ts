@@ -4,6 +4,7 @@ import { createClient } from '@shaq-os/supabase-client/server'
 
 const INGESTION_SERVICE_URL =
   process.env.INGESTION_SERVICE_URL ?? 'http://localhost:3001'
+const INGESTION_API_KEY = process.env.INGESTION_API_KEY ?? ''
 
 const BodySchema = z.object({
   url: z.url(),
@@ -36,7 +37,10 @@ export async function POST(req: Request) {
   try {
     const res = await fetch(`${INGESTION_SERVICE_URL}/jobs`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': INGESTION_API_KEY,
+      },
       body: JSON.stringify({ url: parsed.data.url, owner_id: user.id }),
     })
     const body = await res.json().catch(() => null)
