@@ -36,9 +36,43 @@ function scoreColor(score: number | null | undefined): string {
 
 export function LeadCard({ lead }: { lead: Lead }) {
   const [expanded, setExpanded] = useState(false)
+  const [draft, setDraft] = useState<string | null>(null)
+  const [draftLoading, setDraftLoading] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const d = (lead.diagnosis as Diagnosis | null) ?? {}
   const score = lead.opportunity_score
   const statusClass = STATUS_COLORS[lead.status] ?? STATUS_COLORS.new
+
+  async function generateDraft() {
+    setDraftLoading(true)
+    setDraftError(null)
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/draft-outreach`, {
+        method: 'POST',
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok || !body?.draft) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+      setDraft(body.draft)
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDraftLoading(false)
+    }
+  }
+
+  async function copyDraft() {
+    if (!draft) return
+    try {
+      await navigator.clipboard.writeText(draft)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard blocked — fall through
+    }
+  }
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-5">
@@ -140,13 +174,51 @@ export function LeadCard({ lead }: { lead: Lead }) {
         </div>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="mt-3 text-xs text-zinc-500 hover:text-zinc-900 transition-colors"
-      >
-        {expanded ? 'Hide full diagnosis' : 'Show full diagnosis'}
-      </button>
+      {draft ? (
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+              IG DM draft
+            </span>
+            <button
+              type="button"
+              onClick={copyDraft}
+              className="text-xs px-2 py-1 rounded-md bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+            >
+              {copied ? 'Copied ✓' : 'Copy'}
+            </button>
+          </div>
+          <p className="text-sm text-zinc-800 whitespace-pre-wrap">{draft}</p>
+        </div>
+      ) : null}
+
+      {draftError ? (
+        <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {draftError}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors"
+        >
+          {expanded ? 'Hide full diagnosis' : 'Show full diagnosis'}
+        </button>
+        <button
+          type="button"
+          onClick={generateDraft}
+          disabled={draftLoading}
+          className="text-xs text-blue-600 hover:text-blue-900 transition-colors disabled:text-zinc-300"
+        >
+          {draftLoading
+            ? 'Drafting…'
+            : draft
+              ? 'Regenerate DM'
+              : 'Generate DM draft'}
+        </button>
+      </div>
     </div>
   )
 }
