@@ -2,6 +2,7 @@ import { createClient } from '@shaq-os/supabase-client/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CouncilSession } from '@/components/council/CouncilSession'
+import { PostingPlanCard } from '@/components/planner/PostingPlanCard'
 import { formatDate } from '@/lib/utils'
 
 interface Props {
@@ -40,6 +41,15 @@ export default async function SessionPage({ params }: Props) {
     .eq('kind', 'other')
     .order('created_at', { ascending: true })
 
+  const { data: postingPlans } = await supabase
+    .from('council_outputs')
+    .select('id, payload, created_at')
+    .eq('session_id', id)
+    .eq('kind', 'posting_plan')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const postingPlan = postingPlans?.[0] ?? null
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -67,12 +77,16 @@ export default async function SessionPage({ params }: Props) {
         </Link>
       </div>
 
-      {/* The actual council session with streaming */}
-      <CouncilSession
-        session={session}
-        initialMessages={messages ?? []}
-        initialDiscussions={discussions ?? []}
-      />
+      {postingPlan ? (
+        <PostingPlanCard payload={postingPlan.payload} />
+      ) : (
+        /* The actual council session with streaming (only if not a planning session) */
+        <CouncilSession
+          session={session}
+          initialMessages={messages ?? []}
+          initialDiscussions={discussions ?? []}
+        />
+      )}
     </div>
   )
 }
