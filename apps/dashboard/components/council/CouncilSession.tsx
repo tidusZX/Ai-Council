@@ -4,11 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { COUNCIL_MEMBERS, CHAIRPERSON } from '@shaq-os/council-config'
 import { CouncilMemberCard } from './CouncilMemberCard'
 import { ChairpersonSummary } from './ChairpersonSummary'
+import { DiscussionThread } from './DiscussionThread'
 import type { Message, Session } from '@shaq-os/database-types'
+
+interface Discussion {
+  id: string
+  payload: unknown
+  created_at: string
+}
 
 interface CouncilSessionProps {
   session: Session
   initialMessages?: Message[]
+  initialDiscussions?: Discussion[]
 }
 
 type MemberState = {
@@ -19,7 +27,11 @@ type MemberState = {
 
 const ROLES = COUNCIL_MEMBERS.map((m) => m.role)
 
-export function CouncilSession({ session, initialMessages = [] }: CouncilSessionProps) {
+export function CouncilSession({
+  session,
+  initialMessages = [],
+  initialDiscussions = [],
+}: CouncilSessionProps) {
   const [memberStates, setMemberStates] = useState<Record<string, MemberState>>(() => {
     const initial: Record<string, MemberState> = {}
     const allRoles = [...ROLES, 'chairperson' as const]
@@ -145,6 +157,14 @@ export function CouncilSession({ session, initialMessages = [] }: CouncilSession
         isStreaming={chairState?.isStreaming ?? false}
         isComplete={chairState?.isComplete ?? false}
       />
+
+      {/* Follow-up discussion thread — only enabled once the chairperson has spoken */}
+      {chairState?.isComplete || isComplete ? (
+        <DiscussionThread
+          sessionId={session.id}
+          initialDiscussions={initialDiscussions}
+        />
+      ) : null}
     </div>
   )
 }

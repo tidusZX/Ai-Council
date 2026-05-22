@@ -33,6 +33,13 @@ export default async function SessionPage({ params }: Props) {
     .eq('session_id', id)
     .order('created_at', { ascending: true })
 
+  const { data: discussions } = await supabase
+    .from('council_outputs')
+    .select('id, payload, created_at')
+    .eq('session_id', id)
+    .eq('kind', 'other')
+    .order('created_at', { ascending: true })
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -61,7 +68,11 @@ export default async function SessionPage({ params }: Props) {
       </div>
 
       {/* The actual council session with streaming */}
-      <CouncilSession session={session} initialMessages={messages ?? []} />
+      <CouncilSession
+        session={session}
+        initialMessages={messages ?? []}
+        initialDiscussions={discussions ?? []}
+      />
     </div>
   )
 }
