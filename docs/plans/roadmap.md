@@ -126,11 +126,29 @@ Shaq confirmed he has 2 weeks of content already done. That changes the calculus
 | 4 | **Plan 04 Phase 5** — outreach drafting | ~1.5 hrs | Outreach drafting via a new `outreach_writer` persona. | ✅ Shipped 2026-05-22 |
 | 4b | **Plan 04 Phase 6** — start outreach with existing 30-prospect list | ~30 min setup, ongoing usage | Deferred until 1–2 weeks of active social-media posting. Cold DMs land 3× better when the target lands on a fresh, professional feed. Shaq has a 30-prospect list ready from prior work. | Deferred — kick off ~2026-06-05 |
 | 5 | **Plan 06A — AI Council Follow-up Discussion** | ~3–5 hrs | Currently Council is one-shot (verdict, then frozen). Adding follow-up dialogue improves daily Council usage AND unblocks Plan 06's iterative plan review UX. | Queued |
-| 6 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Run once Lead Finder is generating leads and Council can be discussed with. | Queued |
-| 7 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. | Backlog |
-| 8 | Instagram cookies | ~1 hr | Convenience fix, no rush. | Backlog |
+| 6 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Run once Lead Finder is generating leads and Council can be discussed with. | ✅ Phases 1-4 shipped 2026-05-23 · Phase 5 (Blotato) pending |
+| 7 | **Plan 04B — Apify lead discovery** | ~3–4 hrs | Auto-discovery + IG image fetching. Save until outreach kicks off 2026-06-05. | Queued for 2026-06-05 |
+| 8 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. | Backlog |
+| 9 | Instagram cookies | ~1 hr | Convenience fix, no rush. | Backlog |
 
 The compounding effect: Lead Finder generates leads → some convert → you deliver client work + need more leads → Plan 06 automates content so you have time for client delivery + more outreach. **Lead Finder unlocks revenue. Plan 06 unlocks time. Revenue first.**
+
+### About Plan 04B — Apify-powered lead discovery (queued for ~2026-06-05)
+
+Apify Actors (pre-built web scrapers) would close the "find businesses + collect their images" front of Lead Finder. Realistic integrations:
+
+- **Google Maps Places scraper** → filter SG by category + review count to surface 200+ candidate brands
+- **Instagram Profile Scraper** → pull 12 recent post images from a target IG handle, ready for `/diagnose-lead`
+- **Website Content Crawler** → extract IG handle + email from a brand's contact page
+- **Instagram Video Scraper** → fallback when yt-dlp hits "login required" on IG-gated content (also helps Analyzer)
+
+**Cost:** ~$49/mo base tier covers expected usage; $99-499 only at heavy scale (1000+ profile scrapes/mo).
+
+**Why deferred to 2026-06-05:** No value before outreach is active. Manual paste through `/leads` is fine for testing diagnosis quality on the existing 30-prospect list. Build Plan 04B alongside the outreach kickoff so the discovery engine starts feeding leads exactly when Shaq has time to DM them.
+
+**Effort estimate:** ~3-4 hrs to wire one Actor (IG Profile Scraper) end-to-end. Add a `discovery_source` field to `leads` so we can A/B human-curated vs scraped lead quality.
+
+**Ban-risk note:** Apify rotates IPs and respects rate limits, but Instagram occasionally flags scraped accounts. Never link Shaq's own logged-in account — use a separate scraping identity.
 
 ### About Plan 06A — Council Follow-up Discussion
 
