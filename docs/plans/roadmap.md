@@ -118,13 +118,29 @@ Pattern: **find Singapore F&B + product brands with weak visual brand → diagno
 
 Shaq confirmed he has 2 weeks of content already done. That changes the calculus: the slack is in content production, not in revenue acquisition. Prioritize the thing without slack.
 
-| # | Item | Effort | Rationale |
-|---|---|---|---|
-| 1 | **Plan 04 — Lead Finder** | ~10 hrs | Direct path to $10k MRR. Zero runway here. |
-| 2 | AI Council quick audit | ~15 min | Cheap, frees mental load. |
-| 3 | Confirm Photo Qualifier `analyse` produced ideas + push the 15 non-Carta to Notion | ~30 min | Manual content workflow holds until Plan 06 ships. |
-| 4 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Run once Lead Finder is generating leads — so you have outreach to do instead of manually planning posts. |
-| 5 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. |
-| 6 | Instagram cookies | ~1 hr | Convenience fix, no rush. |
+| # | Item | Effort | Rationale | Status |
+|---|---|---|---|---|
+| 1 | **Plan 04 — Lead Finder MVP** (Phases 1–4) | ~7 hrs | Direct path to $10k MRR. Zero runway here. | ✅ Shipped 2026-05-22 |
+| 2 | AI Council quick audit | ~15 min | Cheap, frees mental load. | ✅ Passed 2026-05-22 |
+| 3 | Confirm Photo Qualifier `analyse` produced ideas + push the 15 non-Carta to Notion | ~30 min | Manual content workflow holds until Plan 06 ships. | 🟡 Pending |
+| 4 | **Plan 04 Phase 5+6** — outreach drafting + 3 real leads | ~2.5 hrs | Finishes Plan 04. Outreach drafting via a new `outreach_writer` persona. | Next session |
+| 5 | **Plan 06A — AI Council Follow-up Discussion** | ~3–5 hrs | Currently Council is one-shot (verdict, then frozen). Adding follow-up dialogue improves daily Council usage AND unblocks Plan 06's iterative plan review UX. | Queued |
+| 6 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Run once Lead Finder is generating leads and Council can be discussed with. | Queued |
+| 7 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. | Backlog |
+| 8 | Instagram cookies | ~1 hr | Convenience fix, no rush. | Backlog |
 
 The compounding effect: Lead Finder generates leads → some convert → you deliver client work + need more leads → Plan 06 automates content so you have time for client delivery + more outreach. **Lead Finder unlocks revenue. Plan 06 unlocks time. Revenue first.**
+
+### About Plan 06A — Council Follow-up Discussion
+
+**Current limitation:** After convening, the Council gives a verdict and the session is frozen. No way to push back on specific takes, ask for clarification, or have members argue further.
+
+**Spec sketch:**
+- Add a "Continue discussion" input below the Chairperson's verdict on `/sessions/[id]`
+- New API endpoint that takes `(session_id, follow_up_question)` and runs the council again with the original prompt + all prior responses as context
+- Save the new round as a fresh set of `council_outputs` rows tied to the same session
+- Render rounds chronologically in the session view
+
+**Why it's a prerequisite to Plan 06:** Plan 06's "review the monthly plan" UX is currently "approve or delete a slot." With follow-up discussion, you can say *"Critic, sharpen the McDonald's case-study hook"* and the Council refines specific slots without regenerating the whole plan.
+
+**Why it's worth doing even without Plan 06:** Every Council session today is a one-shot oracle. With follow-up, it becomes a real thinking partner — useful daily.
