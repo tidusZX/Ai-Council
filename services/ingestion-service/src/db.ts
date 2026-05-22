@@ -37,6 +37,7 @@ export type JobUpdate = {
   duration_seconds?: number | null
   keyframe_paths?: string[]
   raw_metadata?: Json
+  transcript?: string
   error_message?: string | null
 }
 

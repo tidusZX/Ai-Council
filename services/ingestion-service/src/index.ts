@@ -31,6 +31,20 @@ app.get('/', (c) =>
   })
 )
 
+// Require shared-secret header on every mutating route.
+app.use('/jobs/*', async (c, next) => {
+  if (c.req.header('x-api-key') !== env.INGESTION_API_KEY) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  await next()
+})
+app.use('/jobs', async (c, next) => {
+  if (c.req.header('x-api-key') !== env.INGESTION_API_KEY) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  await next()
+})
+
 const JobsBodySchema = z.object({
   url: z.url(),
   owner_id: z.uuid(),
