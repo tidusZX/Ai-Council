@@ -13,41 +13,44 @@ const Body = z.object({
   sessionId: z.string().uuid().optional(),
 })
 
+// Maxes set generously — the goal is to prevent runaway output, not to
+// clip useful prose. The Market Researcher persona tends to produce
+// 2-3 sentence justifications, which can run 400-600 chars.
 const PainPointSchema = z.object({
-  id: z.string().min(1).max(40),
-  headline: z.string().min(5).max(160),
-  evidence: z.string().min(5).max(400),
+  id: z.string().min(1).max(60),
+  headline: z.string().min(5).max(240),
+  evidence: z.string().min(5).max(800),
   severity: z.number().int().min(1).max(3),
 })
 
 const KnowledgeGapSchema = z.object({
-  id: z.string().min(1).max(40),
-  headline: z.string().min(5).max(160),
-  whyItMatters: z.string().min(5).max(400),
+  id: z.string().min(1).max(60),
+  headline: z.string().min(5).max(240),
+  whyItMatters: z.string().min(5).max(800),
 })
 
 const DecisionPatternSchema = z.object({
-  id: z.string().min(1).max(40),
-  observation: z.string().min(5).max(300),
-  implicationForContent: z.string().min(5).max(300),
+  id: z.string().min(1).max(60),
+  observation: z.string().min(5).max(600),
+  implicationForContent: z.string().min(5).max(600),
 })
 
 const AngleSchema = z.object({
-  id: z.string().min(1).max(40),
-  topic: z.string().min(10).max(280),
-  painPointId: z.string().min(1).max(40),
+  id: z.string().min(1).max(60),
+  topic: z.string().min(10).max(400),
+  painPointId: z.string().min(1).max(60),
   format: z.enum(['CAROUSEL', 'SINGLE', 'EDUCATIONAL', 'RE-EDIT']),
-  oneLineHook: z.string().min(5).max(200),
-  why: z.string().min(5).max(300),
+  oneLineHook: z.string().min(5).max(300),
+  why: z.string().min(5).max(500),
 })
 
 const ResultSchema = z.object({
-  summary: z.string().min(10).max(400),
+  summary: z.string().min(10).max(800),
   painPoints: z.array(PainPointSchema).min(3).max(12),
   knowledgeGaps: z.array(KnowledgeGapSchema).min(3).max(12),
   decisionPatterns: z.array(DecisionPatternSchema).min(2).max(10),
   angles: z.array(AngleSchema).min(6).max(12),
-  topPicks: z.array(z.string().min(1).max(40)).length(3),
+  topPicks: z.array(z.string().min(1).max(60)).length(3),
 })
 
 export async function POST(req: Request) {
