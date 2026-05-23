@@ -55,11 +55,11 @@ export async function POST(
     )
   }
 
-  if (page.status !== 'Planned' && page.status !== 'Ready') {
+  if (page.status !== 'Planned' && page.status !== 'Drafting') {
     return NextResponse.json(
       {
         error: 'unexpected status',
-        message: `Notion page status is "${page.status}" — only "Planned" or "Ready" rows can be pushed.`,
+        message: `Notion page status is "${page.status}" — only "Planned" or "Drafting" rows can be pushed.`,
       },
       { status: 409 }
     )

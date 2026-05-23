@@ -21,7 +21,7 @@ export default async function ScheduledPipelinePage() {
   let rows: Awaited<ReturnType<typeof listRowsByStatus>> = []
   let error: string | null = null
   try {
-    rows = await listRowsByStatus(['Planned', 'Ready'])
+    rows = await listRowsByStatus(['Planned', 'Drafting'])
   } catch (e) {
     error = e instanceof Error ? e.message : String(e)
   }
@@ -31,8 +31,9 @@ export default async function ScheduledPipelinePage() {
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">Scheduled Pipeline</h1>
         <p className="text-sm text-zinc-500 mt-1">
-          Notion rows with Status="Planned" or "Ready". Push to Blotato when an
-          asset is in the Image column and you're happy with the caption.
+          Notion rows with Status="Planned" or "Drafting". Push to Blotato when
+          you're happy with the caption and the Image column has the final
+          asset URL.
         </p>
       </div>
 
