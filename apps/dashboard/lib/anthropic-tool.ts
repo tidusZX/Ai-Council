@@ -40,6 +40,35 @@ interface CallOptions<T extends z.ZodType> {
   model?: string
 }
 
+/**
+ * Non-streaming text completion. Used by /api/council/followup which
+ * runs multiple member calls in parallel and persists each on completion.
+ * Streaming is overkill for follow-ups — the user sees the round as a
+ * batch once it's done.
+ */
+export async function callAnthropicText(opts: {
+  system: string
+  userContent: string
+  maxTokens?: number
+  model?: string
+}): Promise<string> {
+  const res = await client().messages.create({
+    model: opts.model ?? getModelName(),
+    max_tokens: opts.maxTokens ?? 4096,
+    system: opts.system,
+    messages: [{ role: 'user', content: opts.userContent }],
+  })
+  const textBlock = res.content.find((c) => c.type === 'text') as
+    | Anthropic.Messages.TextBlock
+    | undefined
+  if (!textBlock) {
+    throw new Error(
+      `Anthropic returned no text block. stop_reason=${res.stop_reason}`
+    )
+  }
+  return textBlock.text
+}
+
 export async function callAnthropicTool<T extends z.ZodType>({
   system,
   userContent,

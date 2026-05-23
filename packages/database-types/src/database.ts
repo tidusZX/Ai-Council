@@ -230,32 +230,46 @@ export type Database = {
       }
       messages: {
         Row: {
+          // round_number/addressed_to/in_reply_to are introduced by
+          // migration 007 (Plan 06A). Until that migration is applied,
+          // existing rows don't return these fields — treat them as
+          // optional so pre-migration selects still typecheck. Read
+          // sites should default round_number → 1, addressed_to → [].
+          addressed_to?: string[]
           content: string
           created_at: string
           embedding: string | null
           id: string
+          in_reply_to?: string | null
           is_complete: boolean
           role: string
+          round_number?: number
           session_id: string
           updated_at: string
         }
         Insert: {
+          addressed_to?: string[]
           content?: string
           created_at?: string
           embedding?: string | null
           id?: string
+          in_reply_to?: string | null
           is_complete?: boolean
           role: string
+          round_number?: number
           session_id: string
           updated_at?: string
         }
         Update: {
+          addressed_to?: string[]
           content?: string
           created_at?: string
           embedding?: string | null
           id?: string
+          in_reply_to?: string | null
           is_complete?: boolean
           role?: string
+          round_number?: number
           session_id?: string
           updated_at?: string
         }
@@ -265,6 +279,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_in_reply_to_fkey"
+            columns: ["in_reply_to"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]

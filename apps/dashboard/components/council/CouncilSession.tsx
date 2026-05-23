@@ -5,6 +5,7 @@ import { COUNCIL_MEMBERS, CHAIRPERSON } from '@shaq-os/council-config'
 import { CouncilMemberCard } from './CouncilMemberCard'
 import { ChairpersonSummary } from './ChairpersonSummary'
 import { DiscussionThread } from './DiscussionThread'
+import { RoundsThread } from './RoundsThread'
 import type { Message, Session } from '@shaq-os/database-types'
 
 interface Discussion {
@@ -160,10 +161,13 @@ export function CouncilSession({
 
       {/* Follow-up discussion thread — only enabled once the chairperson has spoken */}
       {chairState?.isComplete || isComplete ? (
-        <DiscussionThread
-          sessionId={session.id}
-          initialDiscussions={initialDiscussions}
-        />
+        <>
+          <DiscussionThread
+            sessionId={session.id}
+            initialDiscussions={initialDiscussions}
+          />
+          <RoundsThread sessionId={session.id} allMessages={initialMessages} />
+        </>
       ) : null}
     </div>
   )
