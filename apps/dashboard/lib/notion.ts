@@ -122,6 +122,116 @@ export async function fetchCandidatesFromNotion(): Promise<NotionCandidate[]> {
   return out
 }
 
+export interface NotionPageForPush {
+  pageId: string
+  title: string
+  status: string
+  caption: string
+  imageUrl: string | null
+  client: string | null
+  scheduledDateGuess: string | null
+}
+
+/**
+ * Fetch a single Notion page and extract just the fields we need to push to
+ * Blotato. Used by /api/posts/[id]/push-to-blotato so the backend reads the
+ * canonical caption from Notion, not whatever the frontend sent.
+ */
+export async function fetchNotionPageForPush(
+  pageId: string
+): Promise<NotionPageForPush> {
+  const notion = client()
+  const page = await notion.pages.retrieve({ page_id: pageId })
+  const p = (page as { properties: NotionPageProps }).properties
+  return {
+    pageId,
+    title: plain(p['Title']),
+    status: selectName(p['Status']) ?? '',
+    caption: plain(p['Draft Caption']),
+    imageUrl: urlVal(p['Image']) ?? urlVal(p['Drive Link']),
+    client: selectName(p['Client']),
+    scheduledDateGuess: null,
+  }
+}
+
+/**
+ * Mark a row as Scheduled after a successful Blotato push. Stores the
+ * Blotato submission ID in the Note field for traceability (no new column
+ * required).
+ */
+/**
+ * Note about the Blotato submission ID: we deliberately don't write it back
+ * to a Notion column because that would require Shaq to add a new column to
+ * his DB. The submission ID is logged in the API response + Vercel logs if
+ * needed for debugging. Status flip alone is the visible artifact.
+ */
+export async function markRowScheduled(pageId: string): Promise<void> {
+  const notion = client()
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      Status: { select: { name: 'Scheduled' } },
+    },
+  })
+}
+
+/**
+ * List rows with Status in the given set, sorted by Week. Used by the
+ * /scheduled-pipeline page.
+ */
+export async function listRowsByStatus(
+  statuses: string[]
+): Promise<NotionCandidate[]> {
+  if (!NOTION_DATABASE_ID) throw new Error('NOTION_DATABASE_ID not set')
+  const notion = client()
+  const out: NotionCandidate[] = []
+  let cursor: string | undefined
+
+  do {
+    const res = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: {
+        or: statuses.map((status) => ({
+          property: 'Status',
+          select: { equals: status },
+        })),
+      },
+      page_size: 100,
+      start_cursor: cursor,
+    })
+
+    for (const page of res.results) {
+      const p = (page as { properties: NotionPageProps }).properties
+      const formatLabel = selectName(p['Format']) ?? ''
+      const format = FORMAT_MAP[formatLabel] ?? 'SINGLE'
+      const ideaId = plain(p['Idea Id'])
+      if (!ideaId) continue
+      const driveLink = urlVal(p['Drive Link'])
+      const primaryImageId = driveLink
+        ? driveLink.match(/\/file\/d\/([^/]+)/)?.[1] ?? null
+        : null
+
+      out.push({
+        ideaId,
+        title: plain(p['Title']),
+        format,
+        client: selectName(p['Client']),
+        shootName: plain(p['Shoot']) || null,
+        hook: plain(p['Hook']),
+        draftCaption: plain(p['Draft Caption']),
+        hashtags: multiSelectNames(p['Hashtags']),
+        postabilityScore: numberVal(p['Postability']) ?? 0,
+        primaryImageId,
+        notionPageId: (page as { id: string }).id,
+      })
+    }
+
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
+  } while (cursor)
+
+  return out
+}
+
 export interface PlannerApprovePick {
   ideaId: string
   notionPageId: string
