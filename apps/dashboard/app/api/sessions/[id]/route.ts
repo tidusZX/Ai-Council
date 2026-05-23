@@ -29,9 +29,12 @@ export async function GET(
 
   const { data: messages, error: messagesError } = await supabase
     .from('messages')
-    .select('id, session_id, role, content, is_complete, created_at')
+    .select(
+      'id, session_id, role, content, is_complete, created_at, updated_at, round_number, addressed_to, in_reply_to'
+    )
     .eq('session_id', id)
     .order('created_at', { ascending: true })
+    .order('round_number', { ascending: true })
 
   if (messagesError) {
     return NextResponse.json({ error: messagesError.message }, { status: 500 })
