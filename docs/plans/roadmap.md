@@ -126,7 +126,7 @@ Shaq confirmed he has 2 weeks of content already done. That changes the calculus
 | 4 | **Plan 04 Phase 5** — outreach drafting | ~1.5 hrs | Outreach drafting via a new `outreach_writer` persona. | ✅ Shipped 2026-05-22 |
 | 4b | **Plan 04 Phase 6** — start outreach with existing 30-prospect list | ~30 min setup, ongoing usage | Deferred until 1–2 weeks of active social-media posting. Cold DMs land 3× better when the target lands on a fresh, professional feed. Shaq has a 30-prospect list ready from prior work. | Deferred — kick off ~2026-06-05 |
 | 5 | **Plan 06A — AI Council Follow-up Discussion** | ~3–5 hrs | Currently Council is one-shot (verdict, then frozen). Adding follow-up dialogue improves daily Council usage AND unblocks Plan 06's iterative plan review UX. | Queued |
-| 6 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Run once Lead Finder is generating leads and Council can be discussed with. | ✅ Phases 1-4 shipped 2026-05-23 · Phase 5 (Blotato) pending |
+| 6 | **Plan 06 — Content Planning Loop** | ~13–19 hrs | Closes Notion → Planner → Approve → Push → Scheduled. | ✅ All 5 phases shipped 2026-05-23 · Phase 5 awaiting BLOTATO_API_KEY env var |
 | 7 | **Plan 04B — Apify lead discovery** | ~3–4 hrs | Auto-discovery + IG image fetching. Save until outreach kicks off 2026-06-05. | Queued for 2026-06-05 |
 | 8 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. | Backlog |
 | 9 | Instagram cookies | ~1 hr | Convenience fix, no rush. | Backlog |
