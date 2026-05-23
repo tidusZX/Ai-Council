@@ -5,7 +5,7 @@ import { MARKET_RESEARCHER_SYSTEM_PROMPT } from '@shaq-os/council-config'
 import type { Json } from '@shaq-os/database-types'
 import { callAnthropicTool } from '@/lib/anthropic-tool'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 const Body = z.object({
   topic: z.string().min(3).max(600),
