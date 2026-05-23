@@ -71,6 +71,12 @@ export default async function DashboardLayout({
             >
               Pipeline
             </Link>
+            <Link
+              href="/import"
+              className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              Import
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs text-zinc-400 hidden sm:block">

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { generateObject } from 'ai'
 import { createClient } from '@shaq-os/supabase-client/server'
 import { CONTENT_PLANNER_SYSTEM_PROMPT } from '@shaq-os/council-config'
 import type { Json } from '@shaq-os/database-types'
+import { callAnthropicTool } from '@/lib/anthropic-tool'
+import { listOccupiedSlots, type OccupiedSlot } from '@/lib/notion'
 
 export const maxDuration = 120
 
@@ -82,6 +82,39 @@ function summariseCandidates(candidates: Candidate[]): string {
     .join('\n\n---\n\n')
 }
 
+/**
+ * Heuristic — convert a monthLabel ("May 2026", "May", "2026-05") into a
+ * 'YYYY-MM' filter prefix for Scheduled Date matching. Returns null if the
+ * label is too ambiguous, in which case we fall back to "all months".
+ */
+function monthLabelToYYYYMM(label: string | undefined): string | null {
+  if (!label) return null
+  const trimmed = label.trim()
+  if (/^\d{4}-\d{2}$/.test(trimmed)) return trimmed
+  const months: Record<string, string> = {
+    january: '01', february: '02', march: '03', april: '04',
+    may: '05', june: '06', july: '07', august: '08',
+    september: '09', october: '10', november: '11', december: '12',
+  }
+  const m = trimmed.toLowerCase().match(/^([a-z]+)(?:\s+(\d{4}))?$/)
+  if (!m) return null
+  const mm = months[m[1]]
+  if (!mm) return null
+  const yyyy = m[2] ?? String(new Date().getFullYear())
+  return `${yyyy}-${mm}`
+}
+
+function summariseOccupied(occupied: OccupiedSlot[]): string {
+  if (occupied.length === 0) return '(none — full month is open)'
+  return occupied
+    .map((o, i) => {
+      const wk = o.weekNumber != null ? `week ${o.weekNumber}` : 'no week'
+      const dt = o.scheduledDate ?? 'no date'
+      return `${i + 1}. "${o.title}" — ${o.status} · ${wk} · ${dt}`
+    })
+    .join('\n')
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const {
@@ -100,27 +133,52 @@ export async function POST(req: Request) {
   }
 
   const { candidates, monthLabel } = bodyParsed.data
+
+  // ---------------------------------------------------------------------
+  // Gap fix: read already-planned/scheduled/published rows so the planner
+  // doesn't double-book the month or exceed the 10-post cap.
+  // ---------------------------------------------------------------------
+  const monthFilter = monthLabelToYYYYMM(monthLabel)
+  let occupied: OccupiedSlot[] = []
+  try {
+    occupied = await listOccupiedSlots(monthFilter ?? undefined)
+  } catch (e) {
+    // Non-fatal — if Notion is down, plan from scratch but warn.
+    occupied = []
+  }
+  const remainingTarget = Math.max(0, 10 - occupied.length)
+
+  if (remainingTarget === 0) {
+    return NextResponse.json({
+      plan: null,
+      warning: `Month already has ${occupied.length} posts planned/scheduled/published. Cap is 10. Nothing to add.`,
+      occupied,
+    })
+  }
+
   const candidateBlock = summariseCandidates(candidates)
   const userMessage = `Plan content for: ${monthLabel ?? 'next month'}.
 
-There are ${candidates.length} candidate post ideas. Score each, pick the best 10, sequence them into a 4-week arc, and return the structured plan.
+ALREADY-LOCKED THIS MONTH (do NOT re-plan, do NOT double-book these weeks if avoidable):
+${summariseOccupied(occupied)}
+
+TARGET: pick ${remainingTarget} new posts (10 monthly cap minus ${occupied.length} already locked). If the candidate pool is too thin for ${remainingTarget} high-quality picks, return fewer with a note in the summary.
+
+There are ${candidates.length} candidate post ideas. Score each, pick the best ${remainingTarget}, sequence them into the remaining 4-week arc, and return the structured plan.
 
 CANDIDATES:
 
 ${candidateBlock}`
 
-  const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const model = anthropic(process.env.ANALYSIS_MODEL || 'claude-sonnet-4-6')
-
   let plan: z.infer<typeof PlanSchema>
   try {
-    const result = await generateObject({
-      model,
+    plan = await callAnthropicTool({
       system: CONTENT_PLANNER_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+      userContent: userMessage,
+      toolName: 'submit_monthly_plan',
       schema: PlanSchema,
+      maxTokens: 16384,
     })
-    plan = result.object
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json(
@@ -160,5 +218,10 @@ ${candidateBlock}`
     payload: plan as unknown as Json,
   })
 
-  return NextResponse.json({ plan, sessionId: session.id })
+  return NextResponse.json({
+    plan,
+    sessionId: session.id,
+    occupied,
+    remainingTarget,
+  })
 }

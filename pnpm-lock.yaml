@@ -26,6 +26,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.187
         version: 3.0.187(react@19.2.4)(zod@4.4.3)
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0
       '@notionhq/client':
         specifier: ^2.3.0
         version: 2.3.0

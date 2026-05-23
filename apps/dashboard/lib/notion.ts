@@ -232,6 +232,68 @@ export async function listRowsByStatus(
   return out
 }
 
+export interface OccupiedSlot {
+  notionPageId: string
+  title: string
+  status: string
+  weekNumber: number | null
+  scheduledDate: string | null
+}
+
+function dateVal(p: NotionPageProps[string]): string | null {
+  if (!p || p.type !== 'date') return null
+  return p.date?.start ?? null
+}
+
+/**
+ * Returns rows already locked into the month (Status ∈ Planned / Scheduled
+ * / Published). Used by /api/planner/run to subtract from the 10-post target
+ * and tell the planner which week slots are already occupied — closes the
+ * "planner double-books the calendar" gap.
+ *
+ * If `monthYYYYMM` is provided (format 'YYYY-MM'), filters to that month
+ * by Scheduled Date prefix. If not, returns everything in those statuses.
+ */
+export async function listOccupiedSlots(
+  monthYYYYMM?: string
+): Promise<OccupiedSlot[]> {
+  if (!NOTION_DATABASE_ID) throw new Error('NOTION_DATABASE_ID not set')
+  const notion = client()
+  const out: OccupiedSlot[] = []
+  let cursor: string | undefined
+  const statusFilters = ['Planned', 'Scheduled', 'Published'].map((status) => ({
+    property: 'Status',
+    select: { equals: status },
+  }))
+
+  do {
+    const res = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: { or: statusFilters },
+      page_size: 100,
+      start_cursor: cursor,
+    })
+
+    for (const page of res.results) {
+      const p = (page as { properties: NotionPageProps }).properties
+      const scheduledDate = dateVal(p['Scheduled Date'])
+      if (monthYYYYMM && scheduledDate) {
+        if (!scheduledDate.startsWith(monthYYYYMM)) continue
+      }
+      out.push({
+        notionPageId: (page as { id: string }).id,
+        title: plain(p['Title']),
+        status: selectName(p['Status']) ?? '',
+        weekNumber: numberVal(p['Week']),
+        scheduledDate,
+      })
+    }
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
+  } while (cursor)
+
+  return out
+}
+
 export interface PlannerApprovePick {
   ideaId: string
   notionPageId: string

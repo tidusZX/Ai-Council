@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { generateObject } from 'ai'
 import { createClient } from '@shaq-os/supabase-client/server'
 import { BRAINSTORMER_SYSTEM_PROMPT } from '@shaq-os/council-config'
+import { callAnthropicTool } from '@/lib/anthropic-tool'
 
 export const maxDuration = 60
 
@@ -47,22 +46,14 @@ export async function POST(req: Request) {
   }
   const { topic, count } = parsed.data
 
-  const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const model = anthropic(process.env.ANALYSIS_MODEL || 'claude-sonnet-4-6')
-
   try {
-    const result = await generateObject({
-      model,
+    const result = await callAnthropicTool({
       system: BRAINSTORMER_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `TOPIC: ${topic}\nCOUNT: ${count}\n\nProduce ${count} distinct ideas per the system prompt rules.`,
-        },
-      ],
+      userContent: `TOPIC: ${topic}\nCOUNT: ${count}\n\nProduce ${count} distinct ideas per the system prompt rules.`,
+      toolName: 'submit_brainstorm',
       schema: ResultSchema,
     })
-    return NextResponse.json({ ideas: result.object.ideas })
+    return NextResponse.json({ ideas: result.ideas })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json(
