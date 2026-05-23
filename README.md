@@ -32,12 +32,12 @@ To run everything at once: `pnpm dev` (uses Turborepo).
 
 ```
 apps/
-  dashboard/                ← Next.js 16 app + AI Council UI (deployed to Vercel)
-services/                   (Node + Hono service stubs)
-  ingestion-service/        ← video ingest worker (yt-dlp + ffmpeg)
-  analysis-service/         ← scene detection, transcription
-  embeddings-service/       ← CLIP / text embeddings worker
-  scheduler-service/        ← cron jobs (trend reports, etc.)
+  dashboard/                ← Next.js 16 app — every user surface lives here (Vercel)
+services/                   (Node + Hono)
+  ingestion-service/        ← video ingest worker (yt-dlp + ffmpeg + Whisper)
+  analysis-service/         ← Claude vision over keyframes + lead diagnosis
+  embeddings-service/       ← STUB (CLIP / text embeddings)
+  scheduler-service/        ← STUB (cron / trend reports)
 packages/
   database-types/           ← Supabase Database type definitions
   supabase-client/          ← typed browser/server/service clients
@@ -117,6 +117,20 @@ Dockerfile stub at `services/<name>/Dockerfile`.
   change. Don't edit existing migration files.
 - **RLS enforced on every table.** Every new table needs select/insert/update/delete
   policies before merging.
+
+---
+
+## Per-surface docs
+
+| Surface | What it is | Doc |
+|---|---|---|
+| dashboard | Next.js app — entry point for every user surface | [apps/dashboard/README.md](apps/dashboard/README.md) |
+| ingestion-service | yt-dlp + ffmpeg + Whisper worker on Fly | [services/ingestion-service/README.md](services/ingestion-service/README.md) |
+| analysis-service | Claude vision worker on Fly (video + lead) | [services/analysis-service/README.md](services/analysis-service/README.md) |
+| AI Council | Five personas + Chairperson | [docs/apps/ai-council.md](docs/apps/ai-council.md) |
+| Video Analyzer | TikTok/YT URL → transcript + analysis | [docs/apps/analyzer.md](docs/apps/analyzer.md) |
+| Lead Finder | Diagnose + outreach for SG F&B/product brands | [docs/apps/lead-finder.md](docs/apps/lead-finder.md) |
+| Planner | Brainstorm + Audience Signal + Ember + Plan 06 + Import | [docs/apps/planner.md](docs/apps/planner.md) |
 
 ---
 
