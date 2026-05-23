@@ -1,7 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Lead } from '@shaq-os/database-types'
+
+const STATUS_VALUES = [
+  'new',
+  'qualified',
+  'contacted',
+  'responded',
+  'won',
+  'lost',
+  'archived',
+] as const
+type LeadStatus = (typeof STATUS_VALUES)[number]
 
 type ScoreNote = { score: number; notes: string }
 type Diagnosis = {
@@ -40,9 +51,59 @@ export function LeadCard({ lead }: { lead: Lead }) {
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [status, setStatus] = useState<LeadStatus>(
+    (lead.status as LeadStatus) ?? 'new'
+  )
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const [statusSaving, setStatusSaving] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const statusMenuRef = useRef<HTMLDivElement>(null)
   const d = (lead.diagnosis as Diagnosis | null) ?? {}
   const score = lead.opportunity_score
-  const statusClass = STATUS_COLORS[lead.status] ?? STATUS_COLORS.new
+  const statusClass = STATUS_COLORS[status] ?? STATUS_COLORS.new
+
+  // Close the status menu when clicking outside.
+  useEffect(() => {
+    if (!statusMenuOpen) return
+    function onDocClick(e: MouseEvent) {
+      if (
+        statusMenuRef.current &&
+        !statusMenuRef.current.contains(e.target as Node)
+      ) {
+        setStatusMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [statusMenuOpen])
+
+  async function changeStatus(next: LeadStatus) {
+    if (next === status) {
+      setStatusMenuOpen(false)
+      return
+    }
+    setStatusError(null)
+    setStatusSaving(true)
+    const prev = status
+    setStatus(next) // optimistic
+    setStatusMenuOpen(false)
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/status`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: next }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+    } catch (e) {
+      setStatus(prev) // revert
+      setStatusError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setStatusSaving(false)
+    }
+  }
 
   async function generateDraft() {
     setDraftLoading(true)
@@ -82,11 +143,49 @@ export function LeadCard({ lead }: { lead: Lead }) {
             <h3 className="text-base font-semibold text-zinc-900">
               {lead.business_name}
             </h3>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-md border ${statusClass}`}
-            >
-              {lead.status}
-            </span>
+            <div className="relative" ref={statusMenuRef}>
+              <button
+                type="button"
+                onClick={() => setStatusMenuOpen((v) => !v)}
+                disabled={statusSaving}
+                className={`text-xs px-2 py-0.5 rounded-md border transition cursor-pointer hover:opacity-80 disabled:opacity-50 ${statusClass}`}
+                aria-haspopup="menu"
+                aria-expanded={statusMenuOpen}
+              >
+                {statusSaving ? 'Saving…' : status}
+                <span className="ml-1 text-[10px] opacity-60">▾</span>
+              </button>
+              {statusMenuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-full mt-1 z-10 min-w-[140px] rounded-md border border-zinc-200 bg-white shadow-lg overflow-hidden"
+                >
+                  {STATUS_VALUES.map((s) => {
+                    const active = s === status
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => changeStatus(s)}
+                        className={`w-full text-left text-xs px-3 py-1.5 transition ${
+                          active
+                            ? 'bg-zinc-100 font-semibold text-zinc-900'
+                            : 'text-zinc-700 hover:bg-zinc-50'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full mr-2 align-middle ${
+                            (STATUS_COLORS[s] ?? '').split(' ')[0]
+                          }`}
+                        />
+                        {s}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
             {lead.ig_handle ? (
               <span className="text-xs text-zinc-500">@{lead.ig_handle}</span>
             ) : null}
@@ -195,6 +294,12 @@ export function LeadCard({ lead }: { lead: Lead }) {
       {draftError ? (
         <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {draftError}
+        </p>
+      ) : null}
+
+      {statusError ? (
+        <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          Status update failed: {statusError}
         </p>
       ) : null}
 

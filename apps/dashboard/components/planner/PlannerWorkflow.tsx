@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PostingPlanCard } from './PostingPlanCard'
+import { PlanSkeleton } from './PlanSkeleton'
 
 type Candidate = {
   ideaId: string
@@ -233,6 +234,10 @@ export function PlannerWorkflow() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 whitespace-pre-wrap">
           {error}
         </div>
+      ) : null}
+
+      {!plan && (phase === 'fetching' || phase === 'planning') ? (
+        <PlanSkeleton />
       ) : null}
 
       {plan ? (
