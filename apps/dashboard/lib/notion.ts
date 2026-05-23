@@ -285,6 +285,9 @@ export async function applyPlanToNotion(
               },
             ],
           },
+          'Scheduled Date': {
+            date: { start: pick.scheduledDate },
+          },
           ...(weekFromDate
             ? { Week: { number: weekFromDate } }
             : {}),
