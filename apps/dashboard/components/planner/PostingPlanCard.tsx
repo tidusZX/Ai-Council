@@ -50,10 +50,32 @@ function scoreColor(total: number) {
   return 'text-rose-700'
 }
 
-export function PostingPlanCard({ payload }: { payload: unknown }) {
+interface PostingPlanCardProps {
+  payload: unknown
+  /**
+   * When true, each slot gets a "Discuss this slot" button that pre-fills
+   * the RoundsThread input via a window CustomEvent. Only enable when a
+   * RoundsThread is mounted on the same page.
+   */
+  enableDiscuss?: boolean
+}
+
+export function PostingPlanCard({ payload, enableDiscuss }: PostingPlanCardProps) {
   const plan = (payload ?? {}) as Plan
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+
+  function discussSlot(pick: Pick) {
+    const text = `Critic, sharpen the ${ARC_LABEL[pick.arcPosition]} pick for week ${pick.weekNumber} slot ${pick.slotInWeek} (ideaId ${pick.ideaId.slice(0, 8)}). Reason it was picked: ${pick.whyPicked}\n\nFinal caption:\n${pick.finalCaption}\n\nWhat would you tighten or push back on?`
+    window.dispatchEvent(
+      new CustomEvent('council:prefill', {
+        detail: { text, addressed: ['critic', 'chairperson'] },
+      })
+    )
+    document
+      .getElementById('rounds-thread')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const picksByWeek: Record<number, Pick[]> = {}
   for (const p of plan.picks ?? []) {
@@ -172,13 +194,25 @@ export function PostingPlanCard({ payload }: { payload: unknown }) {
                       </div>
                     ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => setExpandedIdx(expanded ? null : idx)}
-                      className="mt-3 text-xs text-zinc-500 hover:text-zinc-900 transition-colors"
-                    >
-                      {expanded ? 'Hide caption' : 'Show caption'}
-                    </button>
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedIdx(expanded ? null : idx)}
+                        className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors"
+                      >
+                        {expanded ? 'Hide caption' : 'Show caption'}
+                      </button>
+                      {enableDiscuss ? (
+                        <button
+                          type="button"
+                          onClick={() => discussSlot(pick)}
+                          className="text-xs text-indigo-600 hover:text-indigo-900 transition-colors"
+                          title="Open this slot in the council follow-up thread"
+                        >
+                          💬 Discuss this slot
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 )
               })}

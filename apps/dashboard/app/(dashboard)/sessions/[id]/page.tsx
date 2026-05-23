@@ -2,8 +2,10 @@ import { createClient } from '@shaq-os/supabase-client/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CouncilSession } from '@/components/council/CouncilSession'
+import { RoundsThread } from '@/components/council/RoundsThread'
 import { PostingPlanCard } from '@/components/planner/PostingPlanCard'
 import { formatDate } from '@/lib/utils'
+import type { Message } from '@shaq-os/database-types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -78,7 +80,13 @@ export default async function SessionPage({ params }: Props) {
       </div>
 
       {postingPlan ? (
-        <PostingPlanCard payload={postingPlan.payload} />
+        <>
+          <PostingPlanCard payload={postingPlan.payload} enableDiscuss />
+          <RoundsThread
+            sessionId={session.id}
+            allMessages={(messages ?? []) as Message[]}
+          />
+        </>
       ) : (
         /* The actual council session with streaming (only if not a planning session) */
         <CouncilSession

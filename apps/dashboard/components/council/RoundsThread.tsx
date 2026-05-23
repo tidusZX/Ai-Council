@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { COUNCIL_MEMBERS, CHAIRPERSON } from '@shaq-os/council-config'
@@ -53,6 +53,31 @@ export function RoundsThread({ sessionId, allMessages }: Props) {
   const [phase, setPhase] = useState<'idle' | 'submitting'>('idle')
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Pre-fill bridge: PostingPlanCard's "Discuss this slot" button (and any
+  // future deep-link button) dispatches a CustomEvent. We listen here and
+  // populate the question + addressed members so the user just confirms.
+  useEffect(() => {
+    function onPrefill(ev: Event) {
+      const detail = (ev as CustomEvent).detail as
+        | { text?: string; addressed?: string[] }
+        | undefined
+      if (!detail) return
+      if (typeof detail.text === 'string') setQuestion(detail.text)
+      if (Array.isArray(detail.addressed)) {
+        const valid = detail.addressed.filter((r): r is Role =>
+          (ALL_ROLES as readonly string[]).includes(r)
+        )
+        if (valid.length > 0) setAddressed(new Set(valid))
+      }
+      // Bring focus to the input so the user can tweak before submitting.
+      setTimeout(() => textareaRef.current?.focus(), 100)
+    }
+    window.addEventListener('council:prefill', onPrefill as EventListener)
+    return () =>
+      window.removeEventListener('council:prefill', onPrefill as EventListener)
+  }, [])
 
   const rounds = groupByRound(messages)
   const followUpRounds = rounds.filter((r) => r.number >= 2)
@@ -117,7 +142,10 @@ export function RoundsThread({ sessionId, allMessages }: Props) {
   }
 
   return (
-    <div className="space-y-6 border-t border-zinc-200 pt-6">
+    <div
+      id="rounds-thread"
+      className="space-y-6 border-t border-zinc-200 pt-6"
+    >
       <div>
         <h3 className="text-sm font-semibold text-zinc-900">
           Address the council
@@ -211,6 +239,7 @@ export function RoundsThread({ sessionId, allMessages }: Props) {
         </div>
 
         <Textarea
+          ref={textareaRef}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           rows={3}
