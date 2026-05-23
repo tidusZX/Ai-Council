@@ -28,7 +28,7 @@ The 3 EOW apps are the **flywheel**. Lead Finder is the **conversion engine** �
 |---|---|---|---|---|
 | 1 | **AI Council** | `apps/dashboard` → `/sessions/*` | 🟡 Built, unverified on prod | Create a session, submit a prompt, see 3+ council members respond, outputs persisted |
 | 2 | **Video Analyzer** | `apps/dashboard` → `/references/analyze` | ✅ Shipped 2026-05-22 (Plan 03) | Paste TikTok/YouTube URL → keyframes + transcript + Claude analysis |
-| 3 | **Photo Qualifier** | `~/photo-qualifier-agent` (CLI) | 🟡 Scans work, planner regressed | `npm run full` produces Markdown + Google Sheet with post ideas per client |
+| 3 | **Photo Qualifier** | `~/photo-qualifier-agent` (CLI) | ✅ Working — 82 ideas in cache from 2026-05-22 run | `npm run full` produces Markdown + Google Sheet with post ideas per client |
 
 ## Supporting infrastructure
 
@@ -105,9 +105,9 @@ Pattern: **find Singapore F&B + product brands with weak visual brand → diagno
 | Thing | State | Notes |
 |---|---|---|
 | Video Analyzer | ✅ Shipped | YouTube/TikTok work, IG gated |
-| Photo Qualifier scan + AI triage | ✅ Working | 338/3206 analyzed, 78 clusters |
+| Photo Qualifier scan + AI triage | ✅ Working | 2550/3206 analyzed, 137 clusters (last run 2026-05-22 22:43) |
 | Photo Qualifier → Notion export | ✅ Already wired | Auto-pushes when ideas generated |
-| Photo Qualifier post-idea planner | 🟡 Regressed | Produced 46 ideas at 02:21; re-run in progress |
+| Photo Qualifier post-idea planner | ✅ Working — 82 ideas | Was a partial-scan artifact on 2026-05-21, not a code bug. Full scan emits ideas as expected. Open improvement: format mix (0 EDU / 0 RE-EDIT in 82 picks) — prompt tuning candidate |
 | AI Council | 🟡 Built, unaudited | Code there, never verified end-to-end on prod |
 | Lead Finder schema | ✅ Migration 003 applied | No service / UI |
 | Notion DB | ✅ Live | Accepting upserts |
