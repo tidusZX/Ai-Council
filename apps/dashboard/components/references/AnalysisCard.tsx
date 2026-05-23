@@ -60,6 +60,38 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
   const hasKeyframes = keyframes.length > 0
   const isComplete = status === 'complete' && analysis
   const isError = status === 'error'
+  const [discussing, setDiscussing] = useState(false)
+
+  async function discussWithCouncil() {
+    if (!analysis || discussing) return
+    setDiscussing(true)
+    const why = (analysis.hypothesized_why_it_works ?? []).join(' · ')
+    const prompt = `I'm reviewing this viral video for content inspiration:
+
+**${title}** — ${row.source_url}
+
+**Hook:** ${analysis.hook ?? '(none captured)'}
+**Structure:** ${analysis.structure ?? '(none captured)'}
+**Why it works (hypotheses):** ${why || '(none captured)'}
+
+My brand: Get Archived (@getarchivedsg) — Singapore commercial photographer (food / product / lifestyle / cinematic) targeting $2k/mo retainers with mid-sized SG F&B and product brands.
+
+Question: which elements of this video — if any — could I adapt for my own Instagram content without losing brand integrity? What would the photographer-specific version of this format look like? Be specific about which hooks / pacing / shot types translate, and which would feel forced.`
+
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      })
+      if (!res.ok) throw new Error('failed to create session')
+      const session = await res.json()
+      router.push(`/sessions/${session.id}`)
+    } catch (e) {
+      setDiscussing(false)
+      alert(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   // Close lightbox on Escape key
   useEffect(() => {
@@ -218,15 +250,25 @@ export function AnalysisCard({ analysis: row }: { analysis: VideoAnalysis }) {
               ) : null}
             </>
           ) : null}
-          <div className="pt-2">
+          <div className="pt-2 flex gap-2">
             <Button
               type="button"
               variant="secondary"
               size="sm"
               onClick={() => setExpanded((v) => !v)}
-              className="w-full"
+              className="flex-1"
             >
               {expanded ? '← Collapse' : 'Show full analysis →'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={discussWithCouncil}
+              disabled={discussing}
+              className="flex-1"
+            >
+              {discussing ? 'Opening session…' : 'Discuss with Council →'}
             </Button>
           </div>
         </div>
