@@ -21,6 +21,8 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
   const [prompt, setPrompt] = useState('')
   const [imageUrlsText, setImageUrlsText] = useState('')
   const [showImageInput, setShowImageInput] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,6 +31,38 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
       .split(/[\n,\s]+/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    e.target.value = '' // allow re-selecting the same file later
+    setUploadError(null)
+    setUploading(true)
+    setShowImageInput(true)
+    try {
+      const existing = parseImageUrls()
+      const newUrls: string[] = []
+      for (const file of files) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch('/api/uploads/council-attachment', {
+          method: 'POST',
+          body: fd,
+        })
+        const body = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(body?.message || body?.error || `Status ${res.status}`)
+        }
+        newUrls.push(body.url)
+      }
+      const merged = [...existing, ...newUrls]
+      setImageUrlsText(merged.join('\n'))
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setUploading(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -101,17 +135,34 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
         className="text-base"
       />
 
-      {/* Image attachments — Plan 07. Hidden by default; click to expand. */}
+      {/* Image attachments — Plan 07 + Plan 8. Hidden by default; click to expand. */}
       <div className="space-y-2">
-        <button
-          type="button"
-          onClick={() => setShowImageInput((v) => !v)}
-          className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
-          disabled={isLoading}
-        >
-          {showImageInput ? '− Hide images' : '+ Attach images'}{' '}
-          {imageUrls.length > 0 ? `(${imageUrls.length})` : ''}
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowImageInput((v) => !v)}
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+            disabled={isLoading || uploading}
+          >
+            {showImageInput ? '− Hide images' : '+ Attach images'}{' '}
+            {imageUrls.length > 0 ? `(${imageUrls.length})` : ''}
+          </button>
+          <label
+            className={`text-xs px-2 py-1 rounded-md border border-zinc-300 cursor-pointer hover:border-zinc-500 hover:bg-zinc-50 transition ${
+              uploading || isLoading ? 'opacity-50 pointer-events-none' : ''
+            }`}
+          >
+            {uploading ? 'Uploading…' : '📎 Upload from device'}
+            <input
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              onChange={handleFileSelect}
+              disabled={uploading || isLoading}
+              className="hidden"
+            />
+          </label>
+        </div>
         {showImageInput ? (
           <Textarea
             value={imageUrlsText}
@@ -119,7 +170,7 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
             rows={4}
             disabled={isLoading}
             placeholder={
-              'Paste public image URLs, one per line. Max 8.\nEach council member sees them via Anthropic vision.\n\nExample:\nhttps://drive.google.com/.../view\nhttps://imgur.com/abc.jpg'
+              'Paste public image URLs, one per line. Max 8.\nOr use Upload from device — file goes to Supabase Storage and the URL drops in here.\n\nExample:\nhttps://drive.google.com/.../view\nhttps://imgur.com/abc.jpg'
             }
             hint={
               imageUrls.length > 0
@@ -127,6 +178,11 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
                 : 'Optional. Adds ~$0.05–0.15 per session in vision costs.'
             }
           />
+        ) : null}
+        {uploadError ? (
+          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+            Upload failed: {uploadError}
+          </p>
         ) : null}
       </div>
 
