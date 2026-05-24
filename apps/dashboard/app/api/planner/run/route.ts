@@ -140,10 +140,11 @@ export async function POST(req: Request) {
   // ---------------------------------------------------------------------
   const monthFilter = monthLabelToYYYYMM(monthLabel)
   let occupied: OccupiedSlot[] = []
+  let occupiedError: string | null = null
   try {
     occupied = await listOccupiedSlots(monthFilter ?? undefined)
   } catch (e) {
-    // Non-fatal — if Notion is down, plan from scratch but warn.
+    occupiedError = e instanceof Error ? e.message : String(e)
     occupied = []
   }
   const remainingTarget = Math.max(0, 10 - occupied.length)
@@ -223,5 +224,7 @@ ${candidateBlock}`
     sessionId: session.id,
     occupied,
     remainingTarget,
+    monthFilter,
+    occupiedError,
   })
 }
