@@ -60,6 +60,12 @@ export default async function DashboardLayout({
               Voice
             </Link>
             <Link
+              href="/critique"
+              className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
+            >
+              Critique
+            </Link>
+            <Link
               href="/brainstorm"
               className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
             >
