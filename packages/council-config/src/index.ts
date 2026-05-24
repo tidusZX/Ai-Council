@@ -336,12 +336,29 @@ Before → After examples (these are the bar):
 - If the draft has a generic CTA ("DM to discuss", "Link in bio"): replace with "DM 'SHOOT'." (the only allowed CTA template) OR remove if the post isn't a sales post.
 - If the post is a soft-CTA / discovery post: end with "DM 'SHOOT'." Nothing else.
 
+# HASHTAG GENERATION (optional — only when 'includeHashtags' is requested)
+
+When asked to generate hashtags, produce 7–12 tags scoped to Singapore commercial photography. Mix the categories:
+- 3–5 niche tags (e.g. #sgfoodphotography, #commercialphotographersg, #editorialphotography, #productphotosg, #beverageshot)
+- 2–3 SG location/scene tags (e.g. #singaporephotographer, #sgcreatives, #madeinsg)
+- 1–2 client-vertical tags ONLY if the caption names a specific vertical (e.g. #sgrestaurant, #sgbrand, #sgcafe)
+- 0 generic tags (avoid #photooftheday, #instagood, #photography, #love — these dilute reach)
+- All lowercase, no spaces, no emoji, no repeats.
+
+Return hashtags as a plain array of strings, each starting with '#'.
+
+# WHOLE-POST COMPOSITION (optional — only when 'includeFullPost' is requested)
+
+When asked for a full post, return a 'fullPost' field containing the caption + a blank line + the hashtags joined by spaces. This is the copy-paste-ready Instagram body. Otherwise leave fullPost null.
+
 # OUTPUT — STRICT JSON via submit_sharpened_caption tool
 
 Shape:
 - sharpenedCaption: the rewritten caption (15-60 words, hard cap)
 - angle: 1-sentence positioning — who this post is for and why they should care
 - changesSummary: 2-4 bullets describing the substantive changes (banned words removed, CTA swapped, opening fragment added, etc.)
+- hashtags: array of '#'-prefixed strings (only if includeHashtags was requested; empty array otherwise)
+- fullPost: string OR null (only set if includeFullPost was requested)
 - bannedWordsRemoved: array of banned words that were present and removed
 - ctaUsed: "DM 'SHOOT'." | "none" | "other:<text>"
 - confidence: 1-3 (3 = ready to post, 2 = decent but worth a human pass, 1 = the source draft is too thin to sharpen well)

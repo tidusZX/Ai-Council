@@ -12,6 +12,8 @@ const Body = z.object({
   hook: z.string().max(200).optional(),
   format: z.enum(['CAROUSEL', 'SINGLE', 'EDUCATIONAL', 'RE-EDIT']).optional(),
   client: z.string().max(120).nullable().optional(),
+  includeHashtags: z.boolean().default(false),
+  includeFullPost: z.boolean().default(false),
 })
 
 const ResultSchema = z.object({
@@ -22,6 +24,8 @@ const ResultSchema = z.object({
   ctaUsed: z.string().min(1).max(80),
   confidence: z.number().int().min(1).max(3),
   flags: z.array(z.string().min(3).max(200)).max(5),
+  hashtags: z.array(z.string().min(2).max(60)).max(15).default([]),
+  fullPost: z.string().max(2400).nullable().default(null),
 })
 
 export async function POST(req: Request) {
@@ -40,13 +44,25 @@ export async function POST(req: Request) {
       { status: 400 }
     )
   }
-  const { draftCaption, title, hook, format, client } = parsed.data
+  const {
+    draftCaption,
+    title,
+    hook,
+    format,
+    client,
+    includeHashtags,
+    includeFullPost,
+  } = parsed.data
 
   const context = [
     title ? `TITLE: ${title}` : null,
     hook ? `HOOK: ${hook}` : null,
     format ? `FORMAT: ${format}` : null,
     client ? `CLIENT: ${client}` : null,
+    includeHashtags ? 'includeHashtags: true (generate hashtags per the rules)' : null,
+    includeFullPost
+      ? 'includeFullPost: true (compose the copy-paste-ready Instagram body)'
+      : null,
     `\nDRAFT CAPTION:\n${draftCaption}\n\nSharpen per the rules above.`,
   ]
     .filter(Boolean)
