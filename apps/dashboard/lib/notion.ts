@@ -270,7 +270,11 @@ export async function listOccupiedSlots(
   if (!NOTION_DATABASE_ID) throw new Error('NOTION_DATABASE_ID not set')
   const notion = client()
 
-  const targetStatuses = ['Planned', 'Scheduled', 'Posted', 'Published']
+  // Must match the actual option names in Shaq's Notion DB:
+  // Idea / Drafting / Scheduled / Posted / Skip / Planned.
+  // Notion's filter is strict — querying a non-existent option errors the
+  // whole query. Keep this list aligned with the DB's Status options.
+  const targetStatuses = ['Planned', 'Scheduled', 'Posted']
 
   // Detect property type once; cheap call, prevents wasted retries.
   let statusPropertyType: 'select' | 'status' = 'select'
