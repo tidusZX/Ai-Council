@@ -15,6 +15,20 @@ const STATUS_VALUES = [
 type LeadStatus = (typeof STATUS_VALUES)[number]
 
 type ScoreNote = { score: number; notes: string }
+type IcpScore = {
+  score: number
+  tier: 'first_call' | 'strong' | 'maybe' | 'unlikely' | 'disqualified'
+  fitReasons: string[]
+  disqualifiers: string[]
+  suggestedAction: 'pursue' | 'pursue_after_signal' | 'watch' | 'archive'
+  rationale: string
+  evidenceUsed: {
+    sizeSignal: string
+    photographyState: string
+    icpVerticalMatch: string
+  }
+  scoredAt?: string
+}
 type Diagnosis = {
   brand_consistency?: ScoreNote
   image_quality?: ScoreNote
@@ -25,6 +39,15 @@ type Diagnosis = {
   top_gaps?: string[]
   red_flags?: string[]
   outreach_angle?: string
+  icpScore?: IcpScore
+}
+
+const ICP_TIER_COLORS: Record<IcpScore['tier'], string> = {
+  first_call: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+  strong: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  maybe: 'bg-amber-50 text-amber-700 border-amber-200',
+  unlikely: 'bg-zinc-100 text-zinc-600 border-zinc-300',
+  disqualified: 'bg-rose-50 text-rose-700 border-rose-200',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -47,6 +70,10 @@ function scoreColor(score: number | null | undefined): string {
 
 export function LeadCard({ lead }: { lead: Lead }) {
   const [expanded, setExpanded] = useState(false)
+  const [icpExpanded, setIcpExpanded] = useState(false)
+  const [scoring, setScoring] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
+  const [localDiagnosis, setLocalDiagnosis] = useState<Diagnosis | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
@@ -58,7 +85,31 @@ export function LeadCard({ lead }: { lead: Lead }) {
   const [statusSaving, setStatusSaving] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
-  const d = (lead.diagnosis as Diagnosis | null) ?? {}
+  const d = localDiagnosis ?? (lead.diagnosis as Diagnosis | null) ?? {}
+  const icp = d.icpScore ?? null
+
+  async function runIcpScore() {
+    setScoring(true)
+    setScoreError(null)
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/score`, {
+        method: 'POST',
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+      // Merge the new verdict into local state so the card updates without a full refetch.
+      setLocalDiagnosis({
+        ...(d as Diagnosis),
+        icpScore: { ...body.verdict, scoredAt: new Date().toISOString() },
+      })
+    } catch (e) {
+      setScoreError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setScoring(false)
+    }
+  }
   const score = lead.opportunity_score
   const statusClass = STATUS_COLORS[status] ?? STATUS_COLORS.new
 
@@ -303,7 +354,80 @@ export function LeadCard({ lead }: { lead: Lead }) {
         </p>
       ) : null}
 
-      <div className="mt-3 flex items-center gap-3">
+      {/* ICP Score panel */}
+      {icp ? (
+        <div
+          className={`mt-4 rounded-lg border p-3 ${ICP_TIER_COLORS[icp.tier]}`}
+        >
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-base font-bold tabular-nums">
+                ICP {icp.score}/10
+              </span>
+              <span className="text-[10px] uppercase tracking-wider">
+                {icp.tier.replace('_', ' ')}
+              </span>
+              <span className="text-[10px] uppercase tracking-wider opacity-70">
+                · {icp.suggestedAction.replace(/_/g, ' ')}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIcpExpanded((v) => !v)}
+              className="text-[11px] underline opacity-80 hover:opacity-100"
+            >
+              {icpExpanded ? 'hide' : 'details'}
+            </button>
+          </div>
+          {icpExpanded ? (
+            <div className="mt-2 space-y-2 text-xs">
+              <p className="italic">{icp.rationale}</p>
+              {icp.fitReasons.length > 0 ? (
+                <div>
+                  <span className="font-semibold">Fits:</span>
+                  <ul className="list-disc pl-4 mt-0.5">
+                    {icp.fitReasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {icp.disqualifiers.length > 0 ? (
+                <div>
+                  <span className="font-semibold">Disqualifiers:</span>
+                  <ul className="list-disc pl-4 mt-0.5">
+                    {icp.disqualifiers.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="text-[11px] opacity-80 pt-1 border-t border-current/20 space-y-0.5">
+                <p>
+                  <span className="font-semibold">Size:</span>{' '}
+                  {icp.evidenceUsed.sizeSignal}
+                </p>
+                <p>
+                  <span className="font-semibold">Photography:</span>{' '}
+                  {icp.evidenceUsed.photographyState}
+                </p>
+                <p>
+                  <span className="font-semibold">Vertical:</span>{' '}
+                  {icp.evidenceUsed.icpVerticalMatch}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {scoreError ? (
+        <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          ICP scoring failed: {scoreError}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex items-center gap-3 flex-wrap">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -322,6 +446,14 @@ export function LeadCard({ lead }: { lead: Lead }) {
             : draft
               ? 'Regenerate DM'
               : 'Generate DM draft'}
+        </button>
+        <button
+          type="button"
+          onClick={runIcpScore}
+          disabled={scoring}
+          className="text-xs text-amber-700 hover:text-amber-900 transition-colors disabled:text-zinc-300"
+        >
+          {scoring ? 'Scoring…' : icp ? 'Re-score ICP' : '🎯 Score against ICP'}
         </button>
       </div>
     </div>
