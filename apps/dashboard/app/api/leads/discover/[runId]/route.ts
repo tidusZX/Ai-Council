@@ -234,11 +234,26 @@ export async function GET(
     })
   }
 
-  // Update the run row.
+  // Status logic — Apify itself succeeded, and we attempted ingest:
+  //   - Some new inserted + some skipped → 'partial'
+  //   - All new inserted, no skips → 'succeeded'
+  //   - Zero new, all skips dedup/no_posts → 'succeeded' (happy path —
+  //     dedup correctly identified everything as duplicates)
+  //   - Zero new AND any insert_failed → 'failed'
+  const hasInsertFailures = skipped.some((s) => s.reason === 'insert_failed')
+  const finalStatus =
+    newLeadIds.length > 0
+      ? skipped.length > 0
+        ? 'partial'
+        : 'succeeded'
+      : hasInsertFailures
+        ? 'failed'
+        : 'succeeded'
+
   await supabase
     .from('discovery_runs')
     .update({
-      status: skipped.length > 0 && newLeadIds.length === 0 ? 'failed' : 'succeeded',
+      status: finalStatus,
       lead_ids: newLeadIds,
       skipped: skipped as unknown as Json,
       completed_at: new Date().toISOString(),
@@ -246,7 +261,7 @@ export async function GET(
     .eq('id', runId)
 
   return NextResponse.json({
-    status: newLeadIds.length === 0 && skipped.length > 0 ? 'failed' : 'succeeded',
+    status: finalStatus,
     apifyRunId: apifyRun.id,
     newLeads: newLeadSummary,
     skipped,

@@ -191,14 +191,15 @@ export function DiscoverWorkflow() {
       {/* RESULT */}
       {phase === 'done' && pollResult ? (
         <div className="space-y-3">
-          {pollResult.status === 'succeeded' &&
-          pollResult.newLeads &&
-          pollResult.newLeads.length > 0 ? (
+          {pollResult.newLeads && pollResult.newLeads.length > 0 ? (
             <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-5">
               <p className="text-sm font-semibold text-emerald-900">
                 ✅ {pollResult.newLeads.length} new lead
                 {pollResult.newLeads.length === 1 ? '' : 's'} added to your
                 funnel
+                {pollResult.status === 'partial'
+                  ? ` (${(pollResult.skipped ?? []).length} skipped — see below)`
+                  : ''}
               </p>
               <ul className="mt-3 space-y-1">
                 {pollResult.newLeads.map((l) => (
@@ -210,8 +211,21 @@ export function DiscoverWorkflow() {
               <p className="text-xs text-emerald-800 mt-3">
                 Visit <a href="/leads" className="underline">/leads</a> to see
                 them and trigger diagnoses (each lead has 12 recent post images
-                stored in discovery_metadata.latest_post_image_urls — ready to
-                paste into the diagnose flow).
+                stored in discovery_metadata.latest_post_image_urls).
+              </p>
+            </div>
+          ) : pollResult.status === 'succeeded' ? (
+            // Happy-path-with-no-new — all handles were dedup matches.
+            <div className="rounded-xl border border-zinc-300 bg-zinc-50 p-5">
+              <p className="text-sm font-semibold text-zinc-700">
+                Run complete · 0 new leads
+              </p>
+              <p className="text-xs text-zinc-600 mt-1">
+                {(pollResult.skipped ?? []).every(
+                  (s) => s.reason === 'already_exists'
+                )
+                  ? 'All handles were already in your funnel — dedup did its job. Try a different set to add new ones.'
+                  : 'Apify ran, but no new leads landed. See the skipped panel below for reasons.'}
               </p>
             </div>
           ) : null}
