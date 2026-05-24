@@ -5,6 +5,7 @@ import { CONTENT_PLANNER_SYSTEM_PROMPT } from '@shaq-os/council-config'
 import type { Json } from '@shaq-os/database-types'
 import { callAnthropicTool } from '@/lib/anthropic-tool'
 import { listOccupiedSlots, type OccupiedSlot } from '@/lib/notion'
+import { monthLabelToYYYYMM } from '@/lib/month'
 
 export const maxDuration = 120
 
@@ -80,28 +81,6 @@ function summariseCandidates(candidates: Candidate[]): string {
       return lines.join('\n')
     })
     .join('\n\n---\n\n')
-}
-
-/**
- * Heuristic — convert a monthLabel ("May 2026", "May", "2026-05") into a
- * 'YYYY-MM' filter prefix for Scheduled Date matching. Returns null if the
- * label is too ambiguous, in which case we fall back to "all months".
- */
-function monthLabelToYYYYMM(label: string | undefined): string | null {
-  if (!label) return null
-  const trimmed = label.trim()
-  if (/^\d{4}-\d{2}$/.test(trimmed)) return trimmed
-  const months: Record<string, string> = {
-    january: '01', february: '02', march: '03', april: '04',
-    may: '05', june: '06', july: '07', august: '08',
-    september: '09', october: '10', november: '11', december: '12',
-  }
-  const m = trimmed.toLowerCase().match(/^([a-z]+)(?:\s+(\d{4}))?$/)
-  if (!m) return null
-  const mm = months[m[1]]
-  if (!mm) return null
-  const yyyy = m[2] ?? String(new Date().getFullYear())
-  return `${yyyy}-${mm}`
 }
 
 function summariseOccupied(occupied: OccupiedSlot[]): string {
