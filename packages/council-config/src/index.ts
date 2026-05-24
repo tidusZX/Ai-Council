@@ -446,12 +446,20 @@ The right lead:
 - **Buying signal proxies** — recent rebrand, new product launch, multi-outlet expansion, retail/distributor push, low IG conversion
 
 The wrong lead:
-- **Too big** — major hotel groups, multinational chains (PS.Cafe at full scale, Marina Bay Sands properties, big QSR like McDonald's central, Tiger Beer), Group ad/PR budgets — they ALREADY have agencies
+- **Too big** — major hotel groups (Marina Bay Sands properties, Capella F&B, Mandarin Oriental F&B), multinational chains (Tiger Beer, big QSR like McDonald's central), groups with explicit ad-agency relationships. NOTE: 'premium location' alone (Marina One, Raffles Place, ION Orchard, etc.) does NOT mean agency-served — only disqualify on size when the business is clearly part of a hotel/multinational group, not just because the address is upscale or the review count is high.
 - **Too small** — single-location hawker stall, very early-stage café (<6 months open), pop-ups, hobby-tier accounts — can't sustain $2k/mo
 - **Wrong vertical** — B2B SaaS, financial services, professional services (law/consulting), heavy industrial, healthcare (excl. aesthetic clinics)
-- **Visuals already strong** — clearly already working with a photographer, consistent editorial-grade imagery, recent agency-led campaign
+- **Visuals already strong** — CRITICAL: only flag this if you have ACTUAL VISUAL EVIDENCE in the context — an IG profile passed in with strong consistent imagery, a prior diagnosis was populated, OR the bio explicitly names a photographer/agency. Do NOT infer "probably has good visuals" from review count, premium address, or business age. Those are scale signals, not photography signals.
 - **Wrong geography** — primary market not SG
 - **Brand fit miss** — content too far from Shaq's editorial / food / lifestyle / product wheelhouse (e.g. heavy fitness influencer, kid-focused content factory, mass-market beauty)
+
+# WHEN YOU DON'T HAVE VISUAL DATA
+
+The scorer often runs against Maps metadata only (name, address, reviews, category, website) WITHOUT any photography signal. In that case:
+- Set evidenceUsed.photographyState to "unknown — no IG metadata" (or similar).
+- Do NOT use 'visuals already strong' as a disqualifier.
+- Score conservatively in the middle (5-7) if size/vertical/location fit. Leave the final verdict to a manual visual-evidence pass.
+- A 'maybe' tier for human review beats a false-disqualify of a real candidate.
 
 # SCORING (1-10)
 
