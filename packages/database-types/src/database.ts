@@ -191,6 +191,10 @@ export type Database = {
           business_name: string
           created_at: string
           diagnosis: Json
+          // discovery_source + discovery_metadata introduced by migration
+          // 010 (Plan 04B). Optional in pre-migration selects.
+          discovery_source?: string | null
+          discovery_metadata?: Json
           id: string
           ig_handle: string | null
           location: string | null
@@ -204,6 +208,8 @@ export type Database = {
           business_name: string
           created_at?: string
           diagnosis?: Json
+          discovery_source?: string | null
+          discovery_metadata?: Json
           id?: string
           ig_handle?: string | null
           location?: string | null
@@ -217,6 +223,8 @@ export type Database = {
           business_name?: string
           created_at?: string
           diagnosis?: Json
+          discovery_source?: string | null
+          discovery_metadata?: Json
           id?: string
           ig_handle?: string | null
           location?: string | null
@@ -225,6 +233,54 @@ export type Database = {
           status?: string
           updated_at?: string
           website?: string | null
+        }
+        Relationships: []
+      }
+      discovery_runs: {
+        Row: {
+          id: string
+          owner_id: string
+          mode: string
+          input: Json
+          apify_actor_id: string
+          apify_run_id: string | null
+          status: string
+          lead_ids: string[]
+          skipped: Json
+          error_message: string | null
+          cost_usd: number | null
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          mode: string
+          input: Json
+          apify_actor_id: string
+          apify_run_id?: string | null
+          status?: string
+          lead_ids?: string[]
+          skipped?: Json
+          error_message?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          mode?: string
+          input?: Json
+          apify_actor_id?: string
+          apify_run_id?: string | null
+          status?: string
+          lead_ids?: string[]
+          skipped?: Json
+          error_message?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          completed_at?: string | null
         }
         Relationships: []
       }
