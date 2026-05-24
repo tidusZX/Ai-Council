@@ -56,6 +56,7 @@ interface SkippedEntry {
     | 'no_website'
     | 'chain_detected'
     | 'low_icp_score'
+    | 'scorer_error'
     | 'no_title'
   detail?: string
 }
@@ -408,8 +409,8 @@ export async function GET(
       if (!score) {
         skipped.push({
           ig_handle: title,
-          reason: 'insert_failed',
-          detail: 'scorer call failed',
+          reason: 'scorer_error',
+          detail: 'Anthropic call failed (timeout or 5xx) — re-run to retry',
         })
         continue
       }
@@ -487,14 +488,16 @@ export async function GET(
     }
   }
 
-  // Status logic — see route note.
-  const hasInsertFailures = skipped.some((s) => s.reason === 'insert_failed')
+  // Status logic — Apify itself succeeded. Only truly fail if EVERY
+  // skip was a real insert_failed. Scorer rejecting all candidates is a
+  // valid 'succeeded' (UI shows the reason). Same for all-dedup matches.
+  const insertFailures = skipped.filter((s) => s.reason === 'insert_failed').length
   const finalStatus =
     newLeadIds.length > 0
       ? skipped.length > 0
         ? 'partial'
         : 'succeeded'
-      : hasInsertFailures
+      : skipped.length > 0 && insertFailures === skipped.length
         ? 'failed'
         : 'succeeded'
 

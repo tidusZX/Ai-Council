@@ -416,16 +416,45 @@ export function DiscoverWorkflow() {
               </p>
             </div>
           ) : pollResult.status === 'succeeded' ? (
-            <div className="rounded-xl border border-zinc-300 bg-zinc-50 p-5">
-              <p className="text-sm font-semibold text-zinc-700">
-                Run complete · 0 new leads
-              </p>
-              <p className="text-xs text-zinc-600 mt-1">
-                {mode === 'maps_category'
-                  ? 'Everything was filtered out (chain, low reviews, or below ICP threshold). Try a different category or lower the ICP threshold.'
-                  : 'All handles were already in your funnel — dedup did its job.'}
-              </p>
-            </div>
+            (() => {
+              const sk = pollResult.skipped ?? []
+              const lowScores = sk.filter((s) => s.reason === 'low_icp_score').length
+              const chains = sk.filter((s) => s.reason === 'chain_detected').length
+              const lowReviews = sk.filter((s) => s.reason === 'low_reviews').length
+              const noWebsites = sk.filter((s) => s.reason === 'no_website').length
+              const scorerErrors = sk.filter((s) => s.reason === 'scorer_error').length
+              const dedupHits = sk.filter((s) => s.reason === 'already_exists').length
+              const noPosts = sk.filter((s) => s.reason === 'no_posts').length
+              const summary: string[] = []
+              if (lowScores > 0) summary.push(`${lowScores} below ICP threshold`)
+              if (chains > 0) summary.push(`${chains} chains filtered`)
+              if (lowReviews > 0) summary.push(`${lowReviews} below review minimum`)
+              if (noWebsites > 0) summary.push(`${noWebsites} no website`)
+              if (scorerErrors > 0) summary.push(`${scorerErrors} scorer timeout`)
+              if (dedupHits > 0) summary.push(`${dedupHits} already in funnel`)
+              if (noPosts > 0) summary.push(`${noPosts} no posts found`)
+              const hint =
+                mode === 'maps_category'
+                  ? lowScores > 0 && lowScores === sk.length
+                    ? 'Scorer was strict — try lowering Min ICP score to 5 or 6.'
+                    : 'Try a different category, lower thresholds, or both.'
+                  : dedupHits === sk.length
+                    ? 'All handles were already in your funnel — dedup worked.'
+                    : 'See skipped panel below for individual reasons.'
+              return (
+                <div className="rounded-xl border border-zinc-300 bg-zinc-50 p-5">
+                  <p className="text-sm font-semibold text-zinc-700">
+                    Run complete · 0 new leads
+                  </p>
+                  {summary.length > 0 ? (
+                    <p className="text-xs text-zinc-600 mt-1">
+                      Breakdown: {summary.join(' · ')}
+                    </p>
+                  ) : null}
+                  <p className="text-xs text-zinc-600 mt-2">{hint}</p>
+                </div>
+              )
+            })()
           ) : null}
 
           {pollResult.status === 'failed' ? (
