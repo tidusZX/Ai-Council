@@ -40,6 +40,13 @@ type Diagnosis = {
   red_flags?: string[]
   outreach_angle?: string
   icpScore?: IcpScore
+  // Seed-shape fields (from scripts/import-30-prospects.ts) — different
+  // schema than the structured visual-brand diagnosis above. Rendered as
+  // a fallback when a lead hasn't been through /diagnose-lead yet.
+  source?: string
+  why_they_fit?: string
+  human_outreach_angle?: string
+  category?: string
 }
 
 const ICP_TIER_COLORS: Record<IcpScore['tier'], string> = {
@@ -280,6 +287,8 @@ export function LeadCard({ lead }: { lead: Lead }) {
 
       {expanded ? (
         <div className="mt-4 pt-4 border-t border-zinc-100 space-y-3">
+          {/* Structured visual-brand diagnosis dimensions (only if the
+              lead's gone through /diagnose-lead). */}
           {(
             [
               ['brand_consistency', 'Brand consistency'],
@@ -307,6 +316,65 @@ export function LeadCard({ lead }: { lead: Lead }) {
               </div>
             )
           })}
+
+          {/* Seed / discovery fallback — leads that haven't been through
+              /diagnose-lead but DO have human-curated notes from the
+              import script or Apify-discovery metadata. Renders only when
+              the structured dimensions above didn't produce anything. */}
+          {!d.brand_consistency &&
+          !d.image_quality &&
+          !d.styling_composition &&
+          !d.visual_hierarchy &&
+          !d.opportunity_for_shaq ? (
+            <div className="space-y-2">
+              {d.why_they_fit ? (
+                <div>
+                  <div className="text-xs font-semibold text-zinc-700">
+                    Why they fit
+                  </div>
+                  <div className="text-sm text-zinc-700 mt-0.5">
+                    {d.why_they_fit}
+                  </div>
+                </div>
+              ) : null}
+              {d.human_outreach_angle ? (
+                <div>
+                  <div className="text-xs font-semibold text-zinc-700">
+                    Outreach angle
+                  </div>
+                  <div className="text-sm text-zinc-700 mt-0.5 italic">
+                    "{d.human_outreach_angle}"
+                  </div>
+                </div>
+              ) : null}
+              {d.category ? (
+                <div>
+                  <div className="text-xs font-semibold text-zinc-700">
+                    Category
+                  </div>
+                  <div className="text-sm text-zinc-700 mt-0.5">
+                    {d.category}
+                  </div>
+                </div>
+              ) : null}
+              {d.source ? (
+                <div className="text-[11px] text-zinc-400 pt-1 border-t border-zinc-100">
+                  Source: {d.source}
+                </div>
+              ) : null}
+              {!d.why_they_fit &&
+              !d.human_outreach_angle &&
+              !d.category &&
+              !d.source ? (
+                <div className="text-sm text-zinc-500 italic">
+                  No diagnosis yet. Paste IG images into the lead form above
+                  and re-create to run visual-brand diagnosis, or use
+                  "Score against ICP" for a quick verdict.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {d.red_flags && d.red_flags.length > 0 ? (
             <div className="rounded-lg bg-rose-50 border border-rose-200 p-3">
               <div className="text-xs font-semibold text-rose-700 mb-1">
