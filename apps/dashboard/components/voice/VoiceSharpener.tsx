@@ -19,6 +19,8 @@ interface SharpenResult {
   fullPost: string | null
 }
 
+type Status = 'Idea' | 'Planned' | 'Scheduled' | 'Published'
+
 export function VoiceSharpener() {
   const [draftCaption, setDraftCaption] = useState('')
   const [title, setTitle] = useState('')
@@ -33,6 +35,18 @@ export function VoiceSharpener() {
   const [result, setResult] = useState<SharpenResult | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
+  // Send to Notion state.
+  const [notionPanelOpen, setNotionPanelOpen] = useState(false)
+  const [notionTitle, setNotionTitle] = useState('')
+  const [notionStatus, setNotionStatus] = useState<Status>('Planned')
+  const [notionScheduledDate, setNotionScheduledDate] = useState('')
+  const [notionImageUrl, setNotionImageUrl] = useState('')
+  const [notionPhase, setNotionPhase] = useState<'idle' | 'sending' | 'done'>(
+    'idle'
+  )
+  const [notionError, setNotionError] = useState<string | null>(null)
+  const [notionPageId, setNotionPageId] = useState<string | null>(null)
+
   async function sharpen() {
     if (!draftCaption.trim() || draftCaption.trim().length < 5) {
       setError('Draft caption must be at least 5 characters.')
@@ -40,6 +54,10 @@ export function VoiceSharpener() {
     }
     setError(null)
     setResult(null)
+    setNotionPanelOpen(false)
+    setNotionPhase('idle')
+    setNotionError(null)
+    setNotionPageId(null)
     setPhase('sharpening')
     try {
       const res = await fetch('/api/voice/sharpen', {
@@ -64,6 +82,52 @@ export function VoiceSharpener() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setPhase('idle')
+    }
+  }
+
+  async function sendToNotion() {
+    if (!result) return
+    const finalTitle = (notionTitle.trim() || title.trim()).slice(0, 200)
+    if (!finalTitle || finalTitle.length < 3) {
+      setNotionError('Title needs at least 3 characters.')
+      return
+    }
+    setNotionError(null)
+    setNotionPhase('sending')
+    try {
+      const captionToSend = result.fullPost ?? result.sharpenedCaption
+      const res = await fetch('/api/import-existing', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: [
+            {
+              title: finalTitle,
+              format,
+              draftCaption: captionToSend,
+              status: notionStatus,
+              client: client.trim() || undefined,
+              hook: hook.trim() || undefined,
+              hashtags: result.hashtags.length
+                ? result.hashtags.map((h) => h.replace(/^#/, ''))
+                : undefined,
+              scheduledDate: notionScheduledDate || undefined,
+              imageUrl: notionImageUrl.trim() || undefined,
+              shootName: client.trim() || undefined,
+            },
+          ],
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+      const inserted = (body?.items ?? [])[0]
+      setNotionPageId(inserted?.notionPageId ?? null)
+      setNotionPhase('done')
+    } catch (e) {
+      setNotionError(e instanceof Error ? e.message : String(e))
+      setNotionPhase('idle')
     }
   }
 
@@ -299,6 +363,130 @@ export function VoiceSharpener() {
               </p>
             </div>
           ) : null}
+
+          {/* Send to Notion → Pipeline → Blotato */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-4">
+            <button
+              type="button"
+              onClick={() => {
+                setNotionPanelOpen((v) => !v)
+                if (!notionTitle.trim() && title.trim()) {
+                  setNotionTitle(title.trim())
+                }
+              }}
+              disabled={notionPhase === 'done'}
+              className="text-sm font-semibold text-zinc-900 hover:text-zinc-700 transition"
+            >
+              {notionPhase === 'done'
+                ? '✅ Sent to Notion'
+                : notionPanelOpen
+                  ? '− Send to Notion (closes the loop)'
+                  : '+ Send to Notion → Pipeline → Blotato'}
+            </button>
+
+            {notionPhase === 'done' && notionPageId ? (
+              <p className="text-xs text-emerald-700 mt-2">
+                Created in Notion · row will appear on{' '}
+                <a
+                  href="/scheduled-pipeline"
+                  className="underline hover:text-emerald-900"
+                >
+                  /scheduled-pipeline
+                </a>{' '}
+                ready for Blotato push.{' '}
+                <a
+                  href={`https://www.notion.so/${notionPageId.replace(/-/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-emerald-900"
+                >
+                  Open in Notion
+                </a>
+              </p>
+            ) : null}
+
+            {notionPanelOpen && notionPhase !== 'done' ? (
+              <div className="mt-3 space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs text-zinc-600">
+                      Title (required)
+                    </span>
+                    <Input
+                      value={notionTitle}
+                      onChange={(e) => setNotionTitle(e.target.value)}
+                      placeholder={title || 'e.g. McDonalds Prosperity Pals'}
+                      disabled={notionPhase === 'sending'}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-zinc-600">Status</span>
+                    <select
+                      value={notionStatus}
+                      onChange={(e) => setNotionStatus(e.target.value as Status)}
+                      disabled={notionPhase === 'sending'}
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="Planned">Planned (skips planner)</option>
+                      <option value="Idea">Idea (planner can pick it)</option>
+                      <option value="Scheduled">Scheduled</option>
+                      <option value="Published">Published</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-zinc-600">
+                      Scheduled date{' '}
+                      <span className="text-zinc-400">(optional)</span>
+                    </span>
+                    <Input
+                      type="date"
+                      value={notionScheduledDate}
+                      onChange={(e) => setNotionScheduledDate(e.target.value)}
+                      disabled={notionPhase === 'sending'}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-zinc-600">
+                      Drive link / image URL{' '}
+                      <span className="text-zinc-400">(optional)</span>
+                    </span>
+                    <Input
+                      value={notionImageUrl}
+                      onChange={(e) => setNotionImageUrl(e.target.value)}
+                      placeholder="https://drive.google.com/…"
+                      disabled={notionPhase === 'sending'}
+                    />
+                  </label>
+                </div>
+
+                <div className="text-xs text-zinc-500">
+                  Notion row gets: title + format ({format}) + this status +
+                  sharpened caption{result.fullPost ? ' (with hashtags inline)' : ''}
+                  {result.hashtags.length
+                    ? ` + ${result.hashtags.length} hashtags`
+                    : ''}
+                  {client.trim() ? ` + client "${client.trim()}"` : ''}.
+                  {' '}From there, push to Blotato when ready.
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={sendToNotion}
+                    disabled={notionPhase === 'sending'}
+                  >
+                    {notionPhase === 'sending' ? 'Sending…' : 'Send to Notion'}
+                  </Button>
+                </div>
+
+                {notionError ? (
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    {notionError}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>
