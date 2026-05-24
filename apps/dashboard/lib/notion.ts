@@ -257,80 +257,74 @@ function dateVal(p: NotionPageProps[string]): string | null {
  * occupied so the planner doesn't double-book.
  *
  * If `monthYYYYMM` is provided (format 'YYYY-MM'), filters to that month
- * by Scheduled Date prefix. If not, returns everything in those statuses.
+ * by Scheduled Date prefix. Rows in target statuses with NO Scheduled
+ * Date are excluded when monthYYYYMM is set (can't tell what month they
+ * belong to). If not, returns everything in those statuses.
  *
- * Uses Notion's `status` filter type (the ◯ Status property type). If
- * Shaq's DB is ever migrated back to Select type, the SDK is forgiving
- * — we fall back to a `select` filter on the same property.
+ * Auto-detects the Status property type (select vs status) from the DB
+ * schema and uses the matching filter shape.
  */
 export async function listOccupiedSlots(
   monthYYYYMM?: string
 ): Promise<OccupiedSlot[]> {
   if (!NOTION_DATABASE_ID) throw new Error('NOTION_DATABASE_ID not set')
   const notion = client()
-  const out: OccupiedSlot[] = []
-  const seen = new Set<string>()
 
   const targetStatuses = ['Planned', 'Scheduled', 'Posted', 'Published']
 
-  // Try status-type filter first (current schema as of 2026-05-24). If it
-  // errors (DB migrated back to select), fall through to select-type.
-  type AnyFilter = {
-    property: string
-    status?: { equals: string }
-    select?: { equals: string }
+  // Detect property type once; cheap call, prevents wasted retries.
+  let statusPropertyType: 'select' | 'status' = 'select'
+  try {
+    const db = await notion.databases.retrieve({
+      database_id: NOTION_DATABASE_ID,
+    })
+    const props = (db as { properties: Record<string, { type: string }> })
+      .properties
+    if (props['Status']?.type === 'status') statusPropertyType = 'status'
+  } catch {
+    // If retrieve fails, fall back to select — the dominant case in this DB.
   }
-  const filterVariants: AnyFilter[][] = [
-    targetStatuses.map((status) => ({
-      property: 'Status',
-      status: { equals: status },
-    })),
-    targetStatuses.map((status) => ({
-      property: 'Status',
-      select: { equals: status },
-    })),
-  ]
 
-  for (const filters of filterVariants) {
-    let cursor: string | undefined
-    try {
-      do {
-        const res = await notion.databases.query({
-          database_id: NOTION_DATABASE_ID,
-          filter: { or: filters } as unknown as Parameters<typeof notion.databases.query>[0]['filter'],
-          page_size: 100,
-          start_cursor: cursor,
-        })
+  const filters = targetStatuses.map((status) =>
+    statusPropertyType === 'status'
+      ? { property: 'Status', status: { equals: status } }
+      : { property: 'Status', select: { equals: status } }
+  )
 
-        for (const page of res.results) {
-          const pageId = (page as { id: string }).id
-          if (seen.has(pageId)) continue
-          const p = (page as { properties: NotionPageProps }).properties
-          const scheduledDate = dateVal(p['Scheduled Date'])
-          if (monthYYYYMM && scheduledDate) {
-            if (!scheduledDate.startsWith(monthYYYYMM)) continue
-          }
-          seen.add(pageId)
-          out.push({
-            notionPageId: pageId,
-            title: plain(p['Title']),
-            status: selectName(p['Status']) ?? '',
-            weekNumber: numberVal(p['Week']),
-            scheduledDate,
-          })
-        }
-        cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
-      } while (cursor)
-      // If the first variant returned something, we're done — no need to try
-      // the second. If it returned nothing AND didn't throw, also done.
-      if (out.length > 0) return out
-    } catch (e) {
-      // Filter shape didn't match this column's property type — try the next.
-      // eslint-disable-next-line no-console
-      console.warn('[listOccupiedSlots] filter variant failed:', (e as Error).message)
-      continue
+  const out: OccupiedSlot[] = []
+  let cursor: string | undefined
+  do {
+    const res = await notion.databases.query({
+      database_id: NOTION_DATABASE_ID,
+      filter: { or: filters } as unknown as Parameters<
+        typeof notion.databases.query
+      >[0]['filter'],
+      page_size: 100,
+      start_cursor: cursor,
+    })
+
+    for (const page of res.results) {
+      const p = (page as { properties: NotionPageProps }).properties
+      const scheduledDate = dateVal(p['Scheduled Date'])
+
+      // Month filter: if monthYYYYMM is provided, require the date to match.
+      // Rows with no Scheduled Date are excluded when monthYYYYMM is set —
+      // we can't tell what month they belong to, so excluding is safer than
+      // counting them against the target month's cap.
+      if (monthYYYYMM) {
+        if (!scheduledDate || !scheduledDate.startsWith(monthYYYYMM)) continue
+      }
+
+      out.push({
+        notionPageId: (page as { id: string }).id,
+        title: plain(p['Title']),
+        status: selectName(p['Status']) ?? '',
+        weekNumber: numberVal(p['Week']),
+        scheduledDate,
+      })
     }
-  }
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
+  } while (cursor)
 
   return out
 }
