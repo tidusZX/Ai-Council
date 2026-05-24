@@ -15,7 +15,10 @@ interface SkippedEntry {
 
 interface PollResponse {
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'partial'
+  stage?: string
   apifyRunId?: string
+  apifyIgRunId?: string
+  progressMessage?: string
   newLeads?: {
     id: string
     business_name: string
@@ -381,8 +384,16 @@ export function DiscoverWorkflow() {
 
       {phase === 'polling' && pollResult ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          🔄 Apify run <strong>{pollResult.apifyRunId?.slice(0, 8)}…</strong>{' '}
-          status = {pollResult.status}. Refreshing every 5s.
+          🔄 {pollResult.progressMessage ?? `Apify run ${pollResult.apifyRunId?.slice(0, 8)}… status = ${pollResult.status}.`}
+          {pollResult.stage ? (
+            <span className="ml-2 text-xs px-2 py-0.5 rounded bg-amber-100 border border-amber-300 font-mono">
+              {pollResult.stage}
+            </span>
+          ) : null}
+          <span className="block text-xs text-amber-700 mt-1">
+            Refreshing every 5s. Multi-stage chain — typically 3–6 min total
+            for Maps mode.
+          </span>
         </div>
       ) : null}
 
