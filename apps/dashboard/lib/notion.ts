@@ -35,6 +35,7 @@ type NotionPageProps = Record<
   | { type: 'title'; title: RichText[] }
   | { type: 'rich_text'; rich_text: RichText[] }
   | { type: 'select'; select: { name: string } | null }
+  | { type: 'status'; status: { name: string } | null }
   | { type: 'multi_select'; multi_select: { name: string }[] }
   | { type: 'number'; number: number | null }
   | { type: 'url'; url: string | null }
@@ -50,8 +51,12 @@ function plain(p: NotionPageProps[string]): string {
 }
 
 function selectName(p: NotionPageProps[string]): string | null {
-  if (!p || p.type !== 'select') return null
-  return p.select?.name ?? null
+  if (!p) return null
+  // Handle both Select-type and Status-type properties — Shaq's Status
+  // column is the ◯ Status type, but the legacy code assumed Select.
+  if (p.type === 'select') return p.select?.name ?? null
+  if (p.type === 'status') return p.status?.name ?? null
+  return null
 }
 
 function multiSelectNames(p: NotionPageProps[string]): string[] {
@@ -246,13 +251,17 @@ function dateVal(p: NotionPageProps[string]): string | null {
 }
 
 /**
- * Returns rows already locked into the month (Status ∈ Planned / Scheduled
- * / Published). Used by /api/planner/run to subtract from the 10-post target
- * and tell the planner which week slots are already occupied — closes the
- * "planner double-books the calendar" gap.
+ * Returns rows already locked into the month — Status ∈ Planned /
+ * Scheduled / Posted / Published. Used by /api/planner/run to subtract
+ * from the 10-post target and surface which week slots are already
+ * occupied so the planner doesn't double-book.
  *
  * If `monthYYYYMM` is provided (format 'YYYY-MM'), filters to that month
  * by Scheduled Date prefix. If not, returns everything in those statuses.
+ *
+ * Uses Notion's `status` filter type (the ◯ Status property type). If
+ * Shaq's DB is ever migrated back to Select type, the SDK is forgiving
+ * — we fall back to a `select` filter on the same property.
  */
 export async function listOccupiedSlots(
   monthYYYYMM?: string
@@ -260,36 +269,68 @@ export async function listOccupiedSlots(
   if (!NOTION_DATABASE_ID) throw new Error('NOTION_DATABASE_ID not set')
   const notion = client()
   const out: OccupiedSlot[] = []
-  let cursor: string | undefined
-  const statusFilters = ['Planned', 'Scheduled', 'Published'].map((status) => ({
-    property: 'Status',
-    select: { equals: status },
-  }))
+  const seen = new Set<string>()
 
-  do {
-    const res = await notion.databases.query({
-      database_id: NOTION_DATABASE_ID,
-      filter: { or: statusFilters },
-      page_size: 100,
-      start_cursor: cursor,
-    })
+  const targetStatuses = ['Planned', 'Scheduled', 'Posted', 'Published']
 
-    for (const page of res.results) {
-      const p = (page as { properties: NotionPageProps }).properties
-      const scheduledDate = dateVal(p['Scheduled Date'])
-      if (monthYYYYMM && scheduledDate) {
-        if (!scheduledDate.startsWith(monthYYYYMM)) continue
-      }
-      out.push({
-        notionPageId: (page as { id: string }).id,
-        title: plain(p['Title']),
-        status: selectName(p['Status']) ?? '',
-        weekNumber: numberVal(p['Week']),
-        scheduledDate,
-      })
+  // Try status-type filter first (current schema as of 2026-05-24). If it
+  // errors (DB migrated back to select), fall through to select-type.
+  type AnyFilter = {
+    property: string
+    status?: { equals: string }
+    select?: { equals: string }
+  }
+  const filterVariants: AnyFilter[][] = [
+    targetStatuses.map((status) => ({
+      property: 'Status',
+      status: { equals: status },
+    })),
+    targetStatuses.map((status) => ({
+      property: 'Status',
+      select: { equals: status },
+    })),
+  ]
+
+  for (const filters of filterVariants) {
+    let cursor: string | undefined
+    try {
+      do {
+        const res = await notion.databases.query({
+          database_id: NOTION_DATABASE_ID,
+          filter: { or: filters } as unknown as Parameters<typeof notion.databases.query>[0]['filter'],
+          page_size: 100,
+          start_cursor: cursor,
+        })
+
+        for (const page of res.results) {
+          const pageId = (page as { id: string }).id
+          if (seen.has(pageId)) continue
+          const p = (page as { properties: NotionPageProps }).properties
+          const scheduledDate = dateVal(p['Scheduled Date'])
+          if (monthYYYYMM && scheduledDate) {
+            if (!scheduledDate.startsWith(monthYYYYMM)) continue
+          }
+          seen.add(pageId)
+          out.push({
+            notionPageId: pageId,
+            title: plain(p['Title']),
+            status: selectName(p['Status']) ?? '',
+            weekNumber: numberVal(p['Week']),
+            scheduledDate,
+          })
+        }
+        cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
+      } while (cursor)
+      // If the first variant returned something, we're done — no need to try
+      // the second. If it returned nothing AND didn't throw, also done.
+      if (out.length > 0) return out
+    } catch (e) {
+      // Filter shape didn't match this column's property type — try the next.
+      // eslint-disable-next-line no-console
+      console.warn('[listOccupiedSlots] filter variant failed:', (e as Error).message)
+      continue
     }
-    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
-  } while (cursor)
+  }
 
   return out
 }
