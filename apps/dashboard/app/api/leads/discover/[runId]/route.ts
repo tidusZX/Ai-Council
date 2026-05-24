@@ -189,6 +189,58 @@ function extractIgHandle(item: RawMapsItem): string | null {
   return null
 }
 
+/**
+ * Fallback when Apify Maps doesn't include the IG handle in result fields.
+ * Fetches the business website HTML and regexes for an instagram.com/X
+ * link. Aggressively timed-out (4s) and best-effort — null on any error.
+ */
+async function fetchIgHandleFromWebsite(website: string): Promise<string | null> {
+  const url = (() => {
+    try {
+      const u = new URL(website)
+      // Normalize: only keep http(s). Drop everything else.
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
+      return u.toString()
+    } catch {
+      return null
+    }
+  })()
+  if (!url) return null
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 4000)
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (compatible; ShaqOSDiscoveryBot/0.1) — looking for IG handle for lead qualification',
+        accept: 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+    })
+    clearTimeout(timeoutId)
+    if (!res.ok) return null
+    const html = await res.text()
+    // Look for any instagram.com/X pattern. Multiple matches OK — first usable wins.
+    const matches = html.matchAll(/instagram\.com\/([A-Za-z0-9._]{1,30})/gi)
+    for (const m of matches) {
+      const handle = m[1].toLowerCase().replace(/\/$/, '')
+      if (
+        handle &&
+        handle.length > 1 &&
+        !['p', 'reel', 'reels', 'tv', 'stories', 'explore', 'about'].includes(
+          handle
+        )
+      ) {
+        return handle
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 function calcCadence(timestamps: (string | undefined)[]): {
   postsPerWeek: number | null
   lastPostAgeDays: number | null
@@ -688,6 +740,29 @@ async function handleMapsCategoryMode(
       } else {
         survivors_without_ig.push(item)
       }
+    }
+
+    // Second pass — for survivors_without_ig that have a website, try
+    // fetching HTML and extracting the IG handle directly. Parallel with
+    // 4s per-request timeout so the whole pass stays within Vercel's budget.
+    if (survivors_without_ig.length > 0) {
+      const websiteResults = await Promise.all(
+        survivors_without_ig.map(async (item) => {
+          if (!item.website) return { item, handle: null }
+          const handle = await fetchIgHandleFromWebsite(item.website)
+          return { item, handle }
+        })
+      )
+      const stillNoIg: RawMapsItem[] = []
+      for (const { item, handle } of websiteResults) {
+        if (handle) {
+          survivors_with_ig.push({ handle, item })
+        } else {
+          stillNoIg.push(item)
+        }
+      }
+      survivors_without_ig.length = 0
+      survivors_without_ig.push(...stillNoIg)
     }
 
     // Trigger Apify IG Profile Scraper for handles we found.
