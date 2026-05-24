@@ -25,8 +25,13 @@ const IdeaSchema = z.object({
 })
 
 const Body = z.object({
-  /** Optional theme — saved as the Shoot/Client label for grouping. */
-  topic: z.string().min(3).max(100),
+  /**
+   * Topic acts as the Shoot label in Notion. /api/brainstorm/run accepts
+   * topics up to 400 chars; approve must match so any topic the user
+   * could brainstorm with can also be approved.
+   * Truncated to 200 chars when written to Notion (Shoot column cap).
+   */
+  topic: z.string().min(3).max(400),
   ideas: z.array(IdeaSchema).min(1).max(10),
 })
 
