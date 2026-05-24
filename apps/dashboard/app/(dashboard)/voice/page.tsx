@@ -1,20 +1,6 @@
-import { VoiceSharpener } from '@/components/voice/VoiceSharpener'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Voice — AI Council' }
-export const dynamic = 'force-dynamic'
-
-export default function VoicePage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Voice</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Paste any caption — yours, a draft, something from Notion — and Ember
-          sharpens it to match your voice profile. Optional: generate hashtags
-          and compose the full Instagram-ready post.
-        </p>
-      </div>
-      <VoiceSharpener />
-    </div>
-  )
+export default function VoiceRedirectPage() {
+  // /voice was unified into /compose (voice mode) on 2026-05-24.
+  redirect('/compose')
 }

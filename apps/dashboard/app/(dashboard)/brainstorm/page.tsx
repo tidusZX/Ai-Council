@@ -1,21 +1,6 @@
-import { BrainstormWorkflow } from '@/components/brainstorm/BrainstormWorkflow'
+import { redirect } from 'next/navigation'
 
-export const metadata = { title: 'Brainstorm — AI Council' }
-export const dynamic = 'force-dynamic'
-
-export default function BrainstormPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Brainstorm</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Two lenses. <strong>Audience Signal</strong> finds ICP pain points
-          and brainstormable angles. <strong>Brainstorm</strong> turns a topic
-          into N postable ideas in your voice. Sharpen any selection with
-          Ember before writing to Notion as Status="Idea".
-        </p>
-      </div>
-      <BrainstormWorkflow />
-    </div>
-  )
+export default function BrainstormRedirectPage() {
+  // /brainstorm was unified into /compose (brainstorm + audience modes) on 2026-05-24.
+  redirect('/compose')
 }
