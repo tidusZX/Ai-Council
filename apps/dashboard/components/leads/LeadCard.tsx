@@ -81,6 +81,8 @@ export function LeadCard({ lead }: { lead: Lead }) {
   const [scoring, setScoring] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
   const [localDiagnosis, setLocalDiagnosis] = useState<Diagnosis | null>(null)
+  const [igPanelOpen, setIgPanelOpen] = useState(false)
+  const [igHandleInput, setIgHandleInput] = useState('')
   const [draft, setDraft] = useState<string | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
@@ -106,11 +108,45 @@ export function LeadCard({ lead }: { lead: Lead }) {
       if (!res.ok) {
         throw new Error(body?.message || body?.error || `Status ${res.status}`)
       }
-      // Merge the new verdict into local state so the card updates without a full refetch.
       setLocalDiagnosis({
         ...(d as Diagnosis),
         icpScore: { ...body.verdict, scoredAt: new Date().toISOString() },
       })
+    } catch (e) {
+      setScoreError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setScoring(false)
+    }
+  }
+
+  async function runIgScore() {
+    const handle = (igHandleInput || lead.ig_handle || '')
+      .trim()
+      .replace(/^@/, '')
+    if (!handle) {
+      setScoreError('Add an IG handle to scrape + score with visuals.')
+      return
+    }
+    setScoring(true)
+    setScoreError(null)
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/score-with-ig`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ igHandle: handle }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+      setLocalDiagnosis({
+        ...(d as Diagnosis),
+        icpScore: {
+          ...body.verdict,
+          scoredAt: new Date().toISOString(),
+        },
+      })
+      setIgPanelOpen(false)
     } catch (e) {
       setScoreError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -523,7 +559,48 @@ export function LeadCard({ lead }: { lead: Lead }) {
         >
           {scoring ? 'Scoring…' : icp ? 'Re-score ICP' : '🎯 Score against ICP'}
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIgPanelOpen((v) => !v)
+            if (!igHandleInput && lead.ig_handle) {
+              setIgHandleInput(lead.ig_handle)
+            }
+          }}
+          disabled={scoring}
+          className="text-xs text-purple-700 hover:text-purple-900 transition-colors disabled:text-zinc-300"
+        >
+          📸 Score with IG
+        </button>
       </div>
+
+      {igPanelOpen ? (
+        <div className="mt-3 rounded-lg border border-purple-200 bg-purple-50 p-3 space-y-2">
+          <p className="text-xs text-purple-900">
+            Pulls the IG profile's 12 recent posts via Apify, then scores
+            with vision + cadence. Takes ~30–60s.
+          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-purple-900">@</span>
+            <input
+              type="text"
+              value={igHandleInput}
+              onChange={(e) => setIgHandleInput(e.target.value)}
+              placeholder={lead.ig_handle ?? 'handle'}
+              disabled={scoring}
+              className="flex-1 min-w-[180px] rounded-md border border-purple-300 bg-white px-2 py-1 text-sm"
+            />
+            <button
+              type="button"
+              onClick={runIgScore}
+              disabled={scoring || !igHandleInput.trim()}
+              className="text-xs px-3 py-1 rounded-md bg-purple-700 text-white hover:bg-purple-900 disabled:bg-zinc-300 transition"
+            >
+              {scoring ? 'Scoring…' : 'Run vision score'}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

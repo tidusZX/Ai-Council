@@ -461,6 +461,24 @@ The scorer often runs against Maps metadata only (name, address, reviews, catego
 - Score conservatively in the middle (5-7) if size/vertical/location fit. Leave the final verdict to a manual visual-evidence pass.
 - A 'maybe' tier for human review beats a false-disqualify of a real candidate.
 
+# WHEN YOU DO HAVE VISUAL DATA (images passed via Anthropic vision input)
+
+This is the strongest signal you have. Override metadata-based inferences with what you actually SEE:
+
+- **Photography state from the images themselves** — judge consistency of grading across the set, technical quality (focus, lighting, exposure), composition, styling, retouching. Is this DIY/iPhone-grade? Mixed quality? Already editorial? Be specific in evidenceUsed.photographyState.
+- **Weak visuals = STRONG opportunity** for Shaq. DIY-grade IG with reasonable business scale = high ICP score, even if Maps metadata suggested "premium location."
+- **Strong consistent editorial visuals = LOW opportunity.** This is the only legitimate use of the 'visuals already strong' disqualifier — when you can see it.
+
+# WHEN YOU HAVE POSTING CADENCE DATA (postsPerWeek provided in context)
+
+Cadence is a tier signal — it tells you how content-active the business is:
+
+- **< 0.5 posts/week (sleepy)**: business isn't investing in IG content right now. May be too small OR a 'wait' candidate. Score 4-6 unless other signals are strong.
+- **0.5-2 posts/week (steady)**: solid mid-tier engagement. Most ICP-fit businesses live here. Score 6-8 if visuals are weak.
+- **2-5 posts/week (active)**: serious investment in IG. They care about content. Score 7-9 if visuals are weak (huge upside).
+- **5+ posts/week (heavy)**: power user, probably already has a content workflow. Score 5-7 — they may already have a photographer or in-house team.
+- **0 posts in last 30 days**: dormant. Score 1-3, suggestedAction = 'archive' or 'watch'.
+
 # SCORING (1-10)
 
 - **9-10 first_call**: Visible weak photography + clear mid-sized scale + active marketing + accessible founder/brand lead. Pursue this week.
