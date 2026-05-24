@@ -130,6 +130,8 @@ Shaq confirmed he has 2 weeks of content already done. That changes the calculus
 | 7 | **Plan 04B — Apify lead discovery** | ~3–4 hrs | Auto-discovery + IG image fetching. Save until outreach kicks off 2026-06-05. | Queued for 2026-06-05 |
 | 8 | Plan 05 — Photo Tagging | ~5 hrs | After 04 + 06 prove themselves. | Backlog |
 | 9 | Instagram cookies | ~1 hr | Convenience fix, no rush. | Backlog |
+| 10 | **Plan 06B — Standalone Ember** | ~2 hrs | Today's Ember is gated behind brainstorm-approve. User wants to paste any caption (their own, from anywhere) + optional hashtag generation + maybe whole-post composer. Surfaced 2026-05-24 during smoke test. | Queued |
+| 11 | **Plan 07 — Image-aware council** | ~4–6 hrs | Council currently text-only. Extend `/sessions/new` to accept image URLs/uploads; each member sees images via Anthropic vision input. Pre-shoot direction, post-shoot critique, content selection. Surfaced 2026-05-24 during smoke test. | Queued |
 
 The compounding effect: Lead Finder generates leads → some convert → you deliver client work + need more leads → Plan 06 automates content so you have time for client delivery + more outreach. **Lead Finder unlocks revenue. Plan 06 unlocks time. Revenue first.**
 
