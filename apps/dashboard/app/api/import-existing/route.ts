@@ -51,7 +51,18 @@ const ItemSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use ISO yyyy-mm-dd')
     .optional(),
+  /**
+   * Single Drive/image URL for backward compat. Goes into Notion `Drive
+   * Link` property.
+   */
   imageUrl: z.url().optional(),
+  /**
+   * Multi-image — for carousels. Each URL becomes an external file in the
+   * Notion `Image` files property (calendar previews + Blotato push read
+   * from here). The first URL also goes into Drive Link if imageUrl wasn't
+   * provided separately.
+   */
+  imageUrls: z.array(z.url()).max(10).optional(),
   shootName: z.string().max(200).optional(),
 })
 type Item = z.infer<typeof ItemSchema>
@@ -158,11 +169,25 @@ export async function POST(req: Request) {
       if (week != null) {
         properties.Week = { number: week }
       }
-      if (item.imageUrl) {
-        // Drive Link is the existing URL-typed property the dashboard
-        // already reads for Blotato push fallback. Image (files) needs
-        // a manual drag in Notion.
-        properties['Drive Link'] = { url: item.imageUrl }
+      // Multi-image: write all URLs as external files into the Image files
+      // property (Notion calendar previews + Blotato fallback both read this).
+      // First URL also goes into Drive Link for backward compat with code paths
+      // that still read that property.
+      const allImageUrls = [
+        ...(item.imageUrl ? [item.imageUrl] : []),
+        ...(item.imageUrls ?? []),
+      ]
+      // Dedupe while preserving order.
+      const dedupedImages = Array.from(new Set(allImageUrls))
+      if (dedupedImages.length > 0) {
+        properties['Drive Link'] = { url: dedupedImages[0] }
+        properties['Image'] = {
+          files: dedupedImages.slice(0, 10).map((url, k) => ({
+            type: 'external',
+            name: `image-${k + 1}`,
+            external: { url },
+          })),
+        }
       }
 
       const page = await notion.pages.create({

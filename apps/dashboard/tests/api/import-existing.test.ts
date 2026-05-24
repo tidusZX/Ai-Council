@@ -16,6 +16,7 @@ const ItemSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use ISO yyyy-mm-dd')
     .optional(),
   imageUrl: z.url().optional(),
+  imageUrls: z.array(z.url()).max(10).optional(),
   shootName: z.string().max(200).optional(),
 })
 
@@ -70,6 +71,34 @@ describe('import-existing Body schema', () => {
     expect(
       Body.safeParse({
         items: [{ ...valid, draftCaption: 'tiny' }],
+      }).success
+    ).toBe(false)
+  })
+
+  it('accepts up to 10 imageUrls', () => {
+    const imageUrls = Array.from(
+      { length: 10 },
+      (_, i) => `https://example.com/${i}.jpg`
+    )
+    expect(
+      Body.safeParse({ items: [{ ...valid, imageUrls }] }).success
+    ).toBe(true)
+  })
+
+  it('caps imageUrls at 10', () => {
+    const imageUrls = Array.from(
+      { length: 11 },
+      (_, i) => `https://example.com/${i}.jpg`
+    )
+    expect(
+      Body.safeParse({ items: [{ ...valid, imageUrls }] }).success
+    ).toBe(false)
+  })
+
+  it('rejects malformed imageUrls', () => {
+    expect(
+      Body.safeParse({
+        items: [{ ...valid, imageUrls: ['not-a-url', 'https://ok.com/a.jpg'] }],
       }).success
     ).toBe(false)
   })

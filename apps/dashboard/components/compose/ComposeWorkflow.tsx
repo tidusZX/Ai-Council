@@ -130,11 +130,49 @@ export function ComposeWorkflow() {
   const [notionStatus, setNotionStatus] = useState<Status>('Planned')
   const [notionScheduledDate, setNotionScheduledDate] = useState('')
   const [notionImageUrl, setNotionImageUrl] = useState('')
+  const [notionImageUrls, setNotionImageUrls] = useState<string[]>([])
+  const [notionUploading, setNotionUploading] = useState(false)
+  const [notionUploadError, setNotionUploadError] = useState<string | null>(null)
   const [notionSendResult, setNotionSendResult] = useState<{
     inserted: number
     pageIds: string[]
     errors: string[]
   } | null>(null)
+
+  async function handleNotionFileUpload(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    e.target.value = ''
+    setNotionUploadError(null)
+    setNotionUploading(true)
+    try {
+      const newUrls: string[] = []
+      for (const file of files) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch('/api/uploads/council-attachment', {
+          method: 'POST',
+          body: fd,
+        })
+        const body = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(body?.message || body?.error || `Status ${res.status}`)
+        }
+        newUrls.push(body.url)
+      }
+      setNotionImageUrls((prev) => [...prev, ...newUrls].slice(0, 10))
+    } catch (err) {
+      setNotionUploadError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setNotionUploading(false)
+    }
+  }
+
+  function removeNotionImageAt(idx: number) {
+    setNotionImageUrls((prev) => prev.filter((_, i) => i !== idx))
+  }
 
   const [copied, setCopied] = useState<string | null>(null)
 
@@ -307,6 +345,7 @@ export function ComposeWorkflow() {
       hashtags?: string[]
       scheduledDate?: string
       imageUrl?: string
+      imageUrls?: string[]
       shootName?: string
     }> = []
 
@@ -327,6 +366,7 @@ export function ComposeWorkflow() {
           : undefined,
         scheduledDate: notionScheduledDate || undefined,
         imageUrl: notionImageUrl.trim() || undefined,
+        imageUrls: notionImageUrls.length ? notionImageUrls : undefined,
         shootName: voice.client.trim() || `Voice: ${topic.slice(0, 50)}`,
       })
     } else if (mode === 'brainstorm' && checked.size > 0) {
@@ -347,6 +387,7 @@ export function ComposeWorkflow() {
             : undefined,
           scheduledDate: notionScheduledDate || undefined,
           imageUrl: notionImageUrl.trim() || undefined,
+          imageUrls: notionImageUrls.length ? notionImageUrls : undefined,
           shootName: `Brainstorm: ${topic.slice(0, 50)}`,
         })
       }
@@ -1030,7 +1071,7 @@ export function ComposeWorkflow() {
             <label className="block">
               <span className="text-xs text-zinc-600">
                 Drive link{' '}
-                <span className="text-zinc-400">(optional)</span>
+                <span className="text-zinc-400">(if hosted elsewhere)</span>
               </span>
               <Input
                 value={notionImageUrl}
@@ -1039,6 +1080,75 @@ export function ComposeWorkflow() {
                 disabled={isBusy}
               />
             </label>
+          </div>
+
+          {/* Multi-image upload (carousel-friendly). */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs text-zinc-600">
+                Images{' '}
+                <span className="text-zinc-400">
+                  (carousel slides — max 10)
+                </span>
+              </span>
+              <label
+                className={`text-xs px-2 py-1 rounded-md border border-zinc-300 cursor-pointer hover:border-zinc-500 hover:bg-zinc-50 transition ${
+                  notionUploading || isBusy || notionImageUrls.length >= 10
+                    ? 'opacity-50 pointer-events-none'
+                    : ''
+                }`}
+              >
+                {notionUploading
+                  ? 'Uploading…'
+                  : '📎 Upload images from device'}
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  onChange={handleNotionFileUpload}
+                  disabled={
+                    notionUploading || isBusy || notionImageUrls.length >= 10
+                  }
+                  className="hidden"
+                />
+              </label>
+              {notionImageUrls.length > 0 ? (
+                <span className="text-xs text-zinc-500">
+                  {notionImageUrls.length} attached
+                </span>
+              ) : null}
+            </div>
+            {notionImageUrls.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {notionImageUrls.map((url, idx) => (
+                  <div
+                    key={url + idx}
+                    className="relative group rounded-md overflow-hidden border border-zinc-200"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`upload ${idx + 1}`}
+                      className="w-20 h-20 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeNotionImageAt(idx)}
+                      disabled={isBusy}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-zinc-900/70 text-white text-xs flex items-center justify-center hover:bg-red-600 transition"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {notionUploadError ? (
+              <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                Upload failed: {notionUploadError}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between gap-3 flex-wrap">
