@@ -38,6 +38,12 @@ interface CallOptions<T extends z.ZodType> {
   schema: T
   maxTokens?: number
   model?: string
+  /**
+   * Optional list of image URLs to attach as vision inputs alongside the
+   * text user content. Anthropic vision will analyze them before producing
+   * the tool_use output. Each must be publicly fetchable.
+   */
+  imageUrls?: string[]
 }
 
 /**
@@ -77,6 +83,7 @@ export async function callAnthropicTool<T extends z.ZodType>({
   schema,
   maxTokens = 8192,
   model,
+  imageUrls,
 }: CallOptions<T>): Promise<z.infer<T>> {
   const inputSchema = z.toJSONSchema(schema, { target: 'draft-7' }) as Record<
     string,
@@ -84,6 +91,17 @@ export async function callAnthropicTool<T extends z.ZodType>({
   >
   // Anthropic doesn't accept the meta $schema key on the tool input_schema.
   delete inputSchema.$schema
+
+  const userMessageContent: Anthropic.Messages.ContentBlockParam[] =
+    imageUrls && imageUrls.length > 0
+      ? [
+          { type: 'text', text: userContent },
+          ...imageUrls.map((url) => ({
+            type: 'image' as const,
+            source: { type: 'url' as const, url },
+          })),
+        ]
+      : [{ type: 'text', text: userContent }]
 
   const res = await client().messages.create({
     model: model ?? getModelName(),
@@ -97,7 +115,7 @@ export async function callAnthropicTool<T extends z.ZodType>({
       },
     ],
     tool_choice: { type: 'tool', name: toolName },
-    messages: [{ role: 'user', content: userContent }],
+    messages: [{ role: 'user', content: userMessageContent }],
   })
 
   const block = res.content.find((c) => c.type === 'tool_use') as

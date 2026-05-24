@@ -7,7 +7,19 @@ import { Textarea } from '@/components/ui/Textarea'
 
 type Format = 'CAROUSEL' | 'SINGLE' | 'EDUCATIONAL' | 'RE-EDIT'
 type Status = 'Idea' | 'Planned' | 'Scheduled' | 'Published'
-type Mode = 'brainstorm' | 'audience' | 'voice'
+type Mode = 'brainstorm' | 'audience' | 'voice' | 'fromImages'
+
+interface ImageComposition {
+  title: string
+  hook: string
+  format: Format
+  draftCaption: string
+  hashtags: string[]
+  inferredSubject: string
+  suggestedClient: string | null
+  confidence: number
+  flags: string[]
+}
 
 const FORMAT_ICON: Record<Format, string> = {
   CAROUSEL: '🎠',
@@ -126,6 +138,22 @@ export function ComposeWorkflow() {
   })
   const voiceDraftRef = useRef<HTMLTextAreaElement | null>(null)
 
+  // ---------- fromImages mode state ----------
+  const [fromImagesUrls, setFromImagesUrls] = useState<string[]>([])
+  const [fromImagesUploading, setFromImagesUploading] = useState(false)
+  const [fromImagesUploadError, setFromImagesUploadError] = useState<
+    string | null
+  >(null)
+  const [fromImagesContext, setFromImagesContext] = useState('')
+  const [fromImagesClient, setFromImagesClient] = useState('')
+  const [imageComposition, setImageComposition] =
+    useState<ImageComposition | null>(null)
+  // After composing, user can sharpen with Ember (reuses voice.result shape).
+  const [imageCompSharpened, setImageCompSharpened] = useState<SharpenResult | null>(
+    null
+  )
+  const [useImageCompSharpened, setUseImageCompSharpened] = useState(false)
+
   // ---------- shared "Send to Notion" form ----------
   const [notionStatus, setNotionStatus] = useState<Status>('Planned')
   const [notionScheduledDate, setNotionScheduledDate] = useState('')
@@ -183,6 +211,105 @@ export function ComposeWorkflow() {
     setPhase('idle')
     setChecked(new Set())
     setNotionSendResult(null)
+  }
+
+  async function handleFromImagesUpload(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    e.target.value = ''
+    setFromImagesUploadError(null)
+    setFromImagesUploading(true)
+    try {
+      const newUrls: string[] = []
+      for (const file of files) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch('/api/uploads/council-attachment', {
+          method: 'POST',
+          body: fd,
+        })
+        const body = await res.json().catch(() => null)
+        if (!res.ok) {
+          throw new Error(body?.message || body?.error || `Status ${res.status}`)
+        }
+        newUrls.push(body.url)
+      }
+      setFromImagesUrls((prev) => [...prev, ...newUrls].slice(0, 10))
+    } catch (err) {
+      setFromImagesUploadError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setFromImagesUploading(false)
+    }
+  }
+
+  function removeFromImageAt(idx: number) {
+    setFromImagesUrls((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  async function runFromImages() {
+    if (fromImagesUrls.length === 0) {
+      setError('Upload at least one image to compose from.')
+      return
+    }
+    setError(null)
+    setImageComposition(null)
+    setImageCompSharpened(null)
+    setUseImageCompSharpened(false)
+    setNotionSendResult(null)
+    setPhase('running')
+    try {
+      const res = await fetch('/api/compose/from-images', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          imageUrls: fromImagesUrls,
+          context: fromImagesContext.trim() || undefined,
+          client: fromImagesClient.trim() || undefined,
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+      setImageComposition(body as ImageComposition)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPhase('idle')
+    }
+  }
+
+  async function sharpenImageComposition() {
+    if (!imageComposition) return
+    setError(null)
+    setPhase('sharpening')
+    try {
+      const res = await fetch('/api/voice/sharpen', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          draftCaption: imageComposition.draftCaption,
+          title: imageComposition.title,
+          hook: imageComposition.hook,
+          format: imageComposition.format,
+          client: imageComposition.suggestedClient ?? undefined,
+          includeHashtags: true,
+          includeFullPost: true,
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Status ${res.status}`)
+      }
+      setImageCompSharpened(body as SharpenResult)
+      setUseImageCompSharpened(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPhase('idle')
+    }
   }
 
   // ============================================================================
@@ -369,6 +496,43 @@ export function ComposeWorkflow() {
         imageUrls: notionImageUrls.length ? notionImageUrls : undefined,
         shootName: voice.client.trim() || `Voice: ${topic.slice(0, 50)}`,
       })
+    } else if (mode === 'fromImages' && imageComposition) {
+      const useSharp = useImageCompSharpened && imageCompSharpened
+      const captionToSend = useSharp
+        ? (imageCompSharpened!.fullPost ?? imageCompSharpened!.sharpenedCaption)
+        : imageComposition.draftCaption
+      const hashtagsToSend =
+        useSharp && imageCompSharpened!.hashtags.length
+          ? imageCompSharpened!.hashtags.map((h) => h.replace(/^#/, ''))
+          : imageComposition.hashtags.map((h) => h.replace(/^#/, ''))
+      items.push({
+        title: imageComposition.title,
+        format: imageComposition.format,
+        draftCaption: captionToSend,
+        status: notionStatus,
+        client:
+          imageComposition.suggestedClient ??
+          fromImagesClient.trim() ??
+          undefined,
+        hook: imageComposition.hook,
+        hashtags: hashtagsToSend.length ? hashtagsToSend : undefined,
+        scheduledDate: notionScheduledDate || undefined,
+        // The composed images ARE the carousel — auto-attach them to the
+        // Send to Notion payload so the user doesn't have to re-upload.
+        imageUrls:
+          fromImagesUrls.length > 0
+            ? Array.from(
+                new Set([...fromImagesUrls, ...notionImageUrls])
+              ).slice(0, 10)
+            : notionImageUrls.length
+              ? notionImageUrls
+              : undefined,
+        imageUrl: notionImageUrl.trim() || undefined,
+        shootName:
+          imageComposition.suggestedClient ??
+          fromImagesClient.trim() ??
+          'From Images',
+      })
     } else if (mode === 'brainstorm' && checked.size > 0) {
       for (const i of Array.from(checked)) {
         const idea = ideas[i]
@@ -460,7 +624,8 @@ export function ComposeWorkflow() {
   // Send-to-Notion is available when there's something to send.
   const hasSomethingToSend =
     (mode === 'voice' && voice.result !== null) ||
-    (mode === 'brainstorm' && checked.size > 0)
+    (mode === 'brainstorm' && checked.size > 0) ||
+    (mode === 'fromImages' && imageComposition !== null)
 
   // ============================================================================
   // RENDER
@@ -477,6 +642,7 @@ export function ComposeWorkflow() {
               ['brainstorm', '🎨', 'Brainstorm', 'topic → N ideas'],
               ['audience', '🔍', 'Audience Signal', 'ICP research'],
               ['voice', '🔥', 'Voice', 'sharpen a draft'],
+              ['fromImages', '📸', 'From Images', 'AI infers post from photos'],
             ] as const
           ).map(([m, icon, label, hint]) => {
             const on = mode === m
@@ -658,6 +824,116 @@ export function ComposeWorkflow() {
               className="ml-auto bg-amber-600 hover:bg-amber-700"
             >
               {phase === 'running' ? 'Sharpening…' : '🔥 Sharpen with Ember'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* INPUT — fromImages */}
+      {mode === 'fromImages' ? (
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm text-zinc-700 font-medium">
+                Drop carousel slides (or a single hero) here:
+              </span>
+              <label
+                className={`text-sm px-3 py-1.5 rounded-md border border-zinc-300 cursor-pointer hover:border-zinc-500 hover:bg-zinc-50 transition ${
+                  fromImagesUploading ||
+                  isBusy ||
+                  fromImagesUrls.length >= 10
+                    ? 'opacity-50 pointer-events-none'
+                    : ''
+                }`}
+              >
+                {fromImagesUploading
+                  ? 'Uploading…'
+                  : '📎 Upload images from device'}
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  onChange={handleFromImagesUpload}
+                  disabled={
+                    fromImagesUploading ||
+                    isBusy ||
+                    fromImagesUrls.length >= 10
+                  }
+                  className="hidden"
+                />
+              </label>
+              {fromImagesUrls.length > 0 ? (
+                <span className="text-xs text-zinc-500">
+                  {fromImagesUrls.length} attached (max 10)
+                </span>
+              ) : null}
+            </div>
+            {fromImagesUrls.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {fromImagesUrls.map((url, idx) => (
+                  <div
+                    key={url + idx}
+                    className="relative group rounded-md overflow-hidden border border-zinc-200"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`slide ${idx + 1}`}
+                      className="w-24 h-24 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFromImageAt(idx)}
+                      disabled={isBusy}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-zinc-900/70 text-white text-xs flex items-center justify-center hover:bg-red-600 transition"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {fromImagesUploadError ? (
+              <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                Upload failed: {fromImagesUploadError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="text-xs text-zinc-600">
+                Context <span className="text-zinc-400">(optional)</span>
+              </span>
+              <Textarea
+                value={fromImagesContext}
+                onChange={(e) => setFromImagesContext(e.target.value)}
+                rows={2}
+                disabled={isBusy}
+                placeholder="e.g. This is the carousel I shot for a new café opening on Telok Ayer"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-zinc-600">
+                Client <span className="text-zinc-400">(optional)</span>
+              </span>
+              <Input
+                value={fromImagesClient}
+                onChange={(e) => setFromImagesClient(e.target.value)}
+                disabled={isBusy}
+                placeholder="e.g. McDonald's Singapore"
+              />
+            </label>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={runFromImages}
+              disabled={isBusy || fromImagesUrls.length === 0}
+            >
+              {phase === 'running' ? 'Composing… (~30s)' : '📸 Compose from images'}
             </Button>
           </div>
         </div>
@@ -1027,6 +1303,96 @@ export function ComposeWorkflow() {
         </div>
       ) : null}
 
+      {/* FROM IMAGES RESULT */}
+      {mode === 'fromImages' && imageComposition ? (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+            <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider">
+              What I see in the images · confidence {imageComposition.confidence}/3
+            </h3>
+            <p className="text-sm text-indigo-900 mt-1">
+              {imageComposition.inferredSubject}
+            </p>
+            {imageComposition.suggestedClient ? (
+              <p className="text-xs text-indigo-700 mt-1">
+                Suggested client: <strong>{imageComposition.suggestedClient}</strong>
+              </p>
+            ) : null}
+            {imageComposition.flags.length > 0 ? (
+              <p className="text-xs text-red-700 mt-2">
+                ⚠ Flags: {imageComposition.flags.join('; ')}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border border-zinc-200 bg-white p-5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs px-2 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-zinc-700">
+                {FORMAT_ICON[imageComposition.format]} {imageComposition.format}
+              </span>
+              <h4 className="text-base font-semibold text-zinc-900">
+                {imageComposition.title}
+              </h4>
+              {imageCompSharpened ? (
+                <button
+                  type="button"
+                  onClick={() => setUseImageCompSharpened((v) => !v)}
+                  className={`ml-auto text-[11px] px-2 py-0.5 rounded-md border ${
+                    useImageCompSharpened
+                      ? 'border-amber-300 bg-amber-50 text-amber-800'
+                      : 'border-zinc-200 bg-white text-zinc-600'
+                  }`}
+                >
+                  {useImageCompSharpened ? '🔥 Ember' : 'Original'}
+                </button>
+              ) : null}
+            </div>
+            <p className="text-sm italic text-zinc-600 mt-2">
+              "{imageComposition.hook}"
+            </p>
+            <p className="text-sm text-zinc-800 mt-2 whitespace-pre-wrap">
+              {useImageCompSharpened && imageCompSharpened
+                ? (imageCompSharpened.fullPost ??
+                    imageCompSharpened.sharpenedCaption)
+                : imageComposition.draftCaption}
+            </p>
+            {(useImageCompSharpened && imageCompSharpened
+              ? imageCompSharpened.hashtags
+              : imageComposition.hashtags
+            ).length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1">
+                {(useImageCompSharpened && imageCompSharpened
+                  ? imageCompSharpened.hashtags
+                  : imageComposition.hashtags
+                ).map((h) => (
+                  <span
+                    key={h}
+                    className="text-[11px] px-1.5 py-0.5 rounded-md border border-zinc-200 bg-zinc-50 text-zinc-700 font-mono"
+                  >
+                    {h.startsWith('#') ? h : `#${h}`}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-4">
+              <Button
+                type="button"
+                onClick={sharpenImageComposition}
+                disabled={isBusy}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                {phase === 'sharpening'
+                  ? 'Sharpening…'
+                  : imageCompSharpened
+                    ? '🔥 Re-sharpen with Ember'
+                    : '🔥 Sharpen with Ember'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* UNIFIED SEND TO NOTION */}
       {hasSomethingToSend ? (
         <div className="rounded-xl border-2 border-zinc-300 bg-white p-5 space-y-4">
@@ -1037,7 +1403,9 @@ export function ComposeWorkflow() {
             <span className="text-xs text-zinc-500">
               {mode === 'voice'
                 ? '1 sharpened caption ready'
-                : `${checked.size} idea${checked.size === 1 ? '' : 's'} selected`}
+                : mode === 'fromImages'
+                  ? `1 composition${useImageCompSharpened ? ' (Ember sharpened)' : ''} · ${fromImagesUrls.length} image${fromImagesUrls.length === 1 ? '' : 's'} attached`
+                  : `${checked.size} idea${checked.size === 1 ? '' : 's'} selected`}
             </span>
           </div>
 
@@ -1169,7 +1537,11 @@ export function ComposeWorkflow() {
             >
               {phase === 'sending'
                 ? 'Sending…'
-                : `Send to Notion (${mode === 'voice' ? 1 : checked.size})`}
+                : `Send to Notion (${
+                    mode === 'voice' || mode === 'fromImages'
+                      ? 1
+                      : checked.size
+                  })`}
             </Button>
           </div>
         </div>
