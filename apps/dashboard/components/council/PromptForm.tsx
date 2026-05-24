@@ -19,8 +19,17 @@ interface PromptFormProps {
 export function PromptForm({ onSessionCreated }: PromptFormProps) {
   const router = useRouter()
   const [prompt, setPrompt] = useState('')
+  const [imageUrlsText, setImageUrlsText] = useState('')
+  const [showImageInput, setShowImageInput] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function parseImageUrls(): string[] {
+    return imageUrlsText
+      .split(/[\n,\s]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,11 +38,30 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
     setIsLoading(true)
     setError(null)
 
+    const imageUrls = parseImageUrls()
+    if (imageUrls.length > 8) {
+      setError('Maximum 8 images per session.')
+      setIsLoading(false)
+      return
+    }
+    for (const url of imageUrls) {
+      try {
+        new URL(url)
+      } catch {
+        setError(`Not a valid URL: ${url}`)
+        setIsLoading(false)
+        return
+      }
+    }
+
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+        }),
       })
 
       if (!res.ok) {
@@ -57,6 +85,7 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
   const charCount = prompt.length
   const maxChars = 4000
   const isOverLimit = charCount > maxChars
+  const imageUrls = parseImageUrls()
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -71,6 +100,35 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
         disabled={isLoading}
         className="text-base"
       />
+
+      {/* Image attachments — Plan 07. Hidden by default; click to expand. */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setShowImageInput((v) => !v)}
+          className="text-xs font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
+          disabled={isLoading}
+        >
+          {showImageInput ? '− Hide images' : '+ Attach images'}{' '}
+          {imageUrls.length > 0 ? `(${imageUrls.length})` : ''}
+        </button>
+        {showImageInput ? (
+          <Textarea
+            value={imageUrlsText}
+            onChange={(e) => setImageUrlsText(e.target.value)}
+            rows={4}
+            disabled={isLoading}
+            placeholder={
+              'Paste public image URLs, one per line. Max 8.\nEach council member sees them via Anthropic vision.\n\nExample:\nhttps://drive.google.com/.../view\nhttps://imgur.com/abc.jpg'
+            }
+            hint={
+              imageUrls.length > 0
+                ? `${imageUrls.length} image${imageUrls.length === 1 ? '' : 's'} parsed${imageUrls.length > 8 ? ' (over the 8-image cap — trim before submitting)' : ''}`
+                : 'Optional. Adds ~$0.05–0.15 per session in vision costs.'
+            }
+          />
+        ) : null}
+      </div>
 
       {/* Example prompts */}
       <div className="space-y-2">
@@ -96,7 +154,7 @@ export function PromptForm({ onSessionCreated }: PromptFormProps) {
           type="submit"
           size="lg"
           loading={isLoading}
-          disabled={!prompt.trim() || isOverLimit}
+          disabled={!prompt.trim() || isOverLimit || imageUrls.length > 8}
         >
           {isLoading ? 'Convening council...' : 'Convene the Council'}
         </Button>

@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 const CreateSessionSchema = z.object({
   prompt: z.string().min(10, 'Prompt must be at least 10 characters').max(4000),
   title: z.string().max(200).optional(),
+  imageUrls: z.array(z.url()).max(8).optional(),
 })
 
 export async function POST(req: Request) {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     )
   }
 
-  const { prompt, title } = parsed.data
+  const { prompt, title, imageUrls } = parsed.data
 
   const { data: session, error } = await supabase
     .from('sessions')
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
       title: title ?? generateSessionTitle(prompt),
       prompt,
       status: 'pending',
+      image_urls: imageUrls ?? [],
     })
     .select()
     .single()

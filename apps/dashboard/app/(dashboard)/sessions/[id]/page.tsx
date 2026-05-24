@@ -79,6 +79,35 @@ export default async function SessionPage({ params }: Props) {
         </Link>
       </div>
 
+      {/* Attached images (Plan 07). Empty array → renders nothing. */}
+      {((session as { image_urls?: string[] }).image_urls ?? []).length > 0 ? (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-3">
+            Attached images · the council sees these
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {((session as { image_urls?: string[] }).image_urls ?? []).map(
+              (url, i) => (
+                <a
+                  key={url + i}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-24 h-24 rounded-md overflow-hidden border border-zinc-200 hover:border-zinc-400 transition"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`attachment ${i + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </a>
+              )
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {postingPlan ? (
         <>
           <PostingPlanCard payload={postingPlan.payload} enableDiscuss />

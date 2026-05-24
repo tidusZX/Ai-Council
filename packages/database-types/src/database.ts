@@ -434,6 +434,9 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          // image_urls introduced by migration 008 (Plan 07). Optional in
+          // pre-migration selects; always present (defaults to []) post.
+          image_urls?: string[]
           prompt: string
           status: string
           title: string
@@ -443,6 +446,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          image_urls?: string[]
           prompt: string
           status?: string
           title: string
@@ -452,6 +456,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          image_urls?: string[]
           prompt?: string
           status?: string
           title?: string

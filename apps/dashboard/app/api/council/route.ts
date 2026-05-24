@@ -117,12 +117,28 @@ export async function POST(req: Request) {
       ? `The council has spoken. Here is the prompt and their responses:\n\n**Original Prompt:**\n${session.prompt}\n\n**Council Responses:**\n${context}`
       : `Please evaluate the following:\n\n${session.prompt}`
 
+  // Plan 07 — image-aware council. If the session has image_urls, attach
+  // them as vision inputs to the user message (only on member calls;
+  // chairperson works from prior member text which already references the
+  // images). Empty array safely no-ops.
+  const sessionImages = (session as { image_urls?: string[] }).image_urls ?? []
+  const userContent =
+    role !== 'chairperson' && sessionImages.length > 0
+      ? [
+          { type: 'text' as const, text: userMessage },
+          ...sessionImages.map((url) => ({
+            type: 'image' as const,
+            image: url,
+          })),
+        ]
+      : userMessage
+
   const model = getModel()
 
   const result = streamText({
     model,
     system: memberConfig.systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
+    messages: [{ role: 'user', content: userContent }],
     onFinish: async ({ text }) => {
       await supabase
         .from('messages')
