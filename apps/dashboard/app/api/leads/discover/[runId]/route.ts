@@ -438,7 +438,7 @@ export async function GET(
       }
 
       const discoveryMetadata: Json = {
-        actor: 'compass/google-maps-scraper',
+        actor: 'compass/crawler-google-places',
         apify_run_id: apifyRun.id,
         google_review_count: item.reviewsCount ?? null,
         google_rating: item.totalScore ?? null,

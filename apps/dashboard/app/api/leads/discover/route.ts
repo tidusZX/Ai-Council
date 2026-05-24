@@ -20,7 +20,10 @@ import type { Json } from '@shaq-os/database-types'
 export const maxDuration = 30
 
 const IG_PROFILE_ACTOR = 'apify/instagram-profile-scraper'
-const MAPS_ACTOR = 'compass/google-maps-scraper'
+// Apify's most-installed Google Maps Actor. Slug differs from the
+// human-friendly name shown in the Apify Store — confirmed via
+// https://apify.com/compass/crawler-google-places
+const MAPS_ACTOR = 'compass/crawler-google-places'
 
 const Body = z.discriminatedUnion('mode', [
   z.object({
