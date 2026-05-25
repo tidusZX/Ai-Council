@@ -24,6 +24,11 @@ import { ApifyClient } from 'apify-client'
 import { z } from 'zod'
 import { ICP_SCORER_SYSTEM_PROMPT } from '@shaq-os/council-config'
 import { callAnthropicTool } from '@/lib/anthropic-tool'
+import {
+  notionLeadsConfigured,
+  pushLeadsToNotion,
+  type LeadForNotion,
+} from '@/lib/notion-leads'
 import type { Json } from '@shaq-os/database-types'
 
 export const maxDuration = 60
@@ -1113,11 +1118,56 @@ async function handleMapsCategoryMode(
     })
     .eq('id', run.id)
 
+  // Best-effort: push all of this run's leads to Notion. Failures here
+  // don't affect run status — the leads are already in Supabase.
+  let notionPushed = 0
+  let notionFailed = 0
+  if (notionLeadsConfigured() && mergedLeadIds.length > 0) {
+    const { data: leadRows } = await supabase
+      .from('leads')
+      .select(
+        'id, business_name, ig_handle, website, location, discovery_source, discovery_metadata, diagnosis, opportunity_score, created_at, notion_page_id'
+      )
+      .in('id', mergedLeadIds)
+      .eq('owner_id', ownerId)
+    if (leadRows && leadRows.length > 0) {
+      const toPush: LeadForNotion[] = leadRows.map((r) => ({
+        id: r.id,
+        business_name: r.business_name,
+        ig_handle: r.ig_handle ?? null,
+        website: r.website ?? null,
+        location: r.location ?? null,
+        discovery_source: r.discovery_source ?? null,
+        discovery_metadata:
+          (r.discovery_metadata as Record<string, unknown> | null) ?? null,
+        diagnosis: (r.diagnosis as Record<string, unknown> | null) ?? null,
+        opportunity_score: r.opportunity_score ?? null,
+        created_at: r.created_at,
+      }))
+      const pushResults = await pushLeadsToNotion(toPush)
+      for (const result of pushResults) {
+        if (result.notionPageId) {
+          notionPushed += 1
+          await supabase
+            .from('leads')
+            .update({ notion_page_id: result.notionPageId })
+            .eq('id', result.leadId)
+            .eq('owner_id', ownerId)
+        } else {
+          notionFailed += 1
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     status: finalStatus,
     apifyRunId: run.apify_run_id,
     apifyIgRunId: input.apify_ig_run_id,
     newLeads: newLeadSummary,
     skipped: mergedSkipped,
+    notion: notionLeadsConfigured()
+      ? { pushed: notionPushed, failed: notionFailed }
+      : { configured: false },
   })
 }

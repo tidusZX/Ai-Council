@@ -203,6 +203,9 @@ export type Database = {
           status: string
           updated_at: string
           website: string | null
+          // notion_page_id introduced by migration 011 — optional in
+          // pre-migration selects.
+          notion_page_id?: string | null
         }
         Insert: {
           business_name: string
@@ -218,6 +221,7 @@ export type Database = {
           status?: string
           updated_at?: string
           website?: string | null
+          notion_page_id?: string | null
         }
         Update: {
           business_name?: string
@@ -233,6 +237,7 @@ export type Database = {
           status?: string
           updated_at?: string
           website?: string | null
+          notion_page_id?: string | null
         }
         Relationships: []
       }
