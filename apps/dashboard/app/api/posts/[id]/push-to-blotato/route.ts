@@ -6,7 +6,12 @@ import {
   markRowScheduled,
   toDriveDownloadUrl,
 } from '@/lib/notion'
-import { createInstagramPost } from '@/lib/blotato'
+import {
+  createInstagramPost,
+  createLinkedInPost,
+  linkedInConfigured,
+  type CreatePostResponse,
+} from '@/lib/blotato'
 
 export const maxDuration = 30
 
@@ -148,9 +153,9 @@ export async function POST(
   const scheduledTime = explicitTime ?? dateFromNotion ?? undefined
   const useNextFreeSlot = !scheduledTime
 
-  let blotatoResp
+  let igResp: CreatePostResponse
   try {
-    blotatoResp = await createInstagramPost({
+    igResp = await createInstagramPost({
       text: page.caption,
       mediaUrls,
       scheduledTime,
@@ -159,9 +164,28 @@ export async function POST(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json(
-      { error: 'blotato push failed', message },
+      { error: 'blotato push failed (instagram)', message },
       { status: 502 }
     )
+  }
+
+  // LinkedIn cross-post is best-effort. IG is the primary destination —
+  // if LinkedIn fails (missing env, platform-specific constraint, network),
+  // we still consider the push a success and surface the LinkedIn error
+  // in the response so the user knows to retry manually if they want.
+  let linkedInResp: CreatePostResponse | null = null
+  let linkedInError: string | null = null
+  if (linkedInConfigured()) {
+    try {
+      linkedInResp = await createLinkedInPost({
+        text: page.caption,
+        mediaUrls,
+        scheduledTime,
+        useNextFreeSlot,
+      })
+    } catch (e) {
+      linkedInError = e instanceof Error ? e.message : String(e)
+    }
   }
 
   try {
@@ -170,7 +194,9 @@ export async function POST(
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json({
       ok: true,
-      blotato: blotatoResp,
+      blotato: igResp,
+      linkedIn: linkedInResp,
+      linkedInError,
       scheduling: { scheduledTime, useNextFreeSlot },
       warning: 'pushed to Blotato but Notion status update failed',
       notionError: message,
@@ -179,7 +205,9 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    blotato: blotatoResp,
+    blotato: igResp,
+    linkedIn: linkedInResp,
+    linkedInError,
     scheduling: { scheduledTime, useNextFreeSlot },
   })
 }

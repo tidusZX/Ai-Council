@@ -2,10 +2,10 @@
  * Thin HTTP wrapper over the Blotato API.
  * Docs: https://help.blotato.com/api
  *
- * Used by /api/posts/[id]/push-to-blotato to schedule Instagram posts
- * from Notion rows. Auth is a static API key in the `blotato-api-key`
- * header. Account IDs are env-configured for the Singapore market
- * (one IG handle, @getarchivedsg).
+ * Used by /api/posts/[id]/push-to-blotato to schedule posts from Notion rows.
+ * Auth is a static API key in the `blotato-api-key` header. Per-platform
+ * account IDs are env-configured for the Singapore market — IG handle
+ * @getarchivedsg + LinkedIn profile/company page "Get Archived!".
  */
 
 const BLOTATO_BASE_URL = 'https://backend.blotato.com/v2'
@@ -13,6 +13,15 @@ const BLOTATO_BASE_URL = 'https://backend.blotato.com/v2'
 const BLOTATO_API_KEY = process.env.BLOTATO_API_KEY ?? ''
 const BLOTATO_INSTAGRAM_ACCOUNT_ID =
   process.env.BLOTATO_INSTAGRAM_ACCOUNT_ID ?? ''
+const BLOTATO_LINKEDIN_ACCOUNT_ID =
+  process.env.BLOTATO_LINKEDIN_ACCOUNT_ID ?? ''
+// Optional. Without it, LinkedIn posts go to the personal profile. With it,
+// posts go to the company page (recommended for the Get Archived brand).
+const BLOTATO_LINKEDIN_PAGE_ID = process.env.BLOTATO_LINKEDIN_PAGE_ID ?? ''
+
+export function linkedInConfigured(): boolean {
+  return Boolean(BLOTATO_LINKEDIN_ACCOUNT_ID)
+}
 
 function headers() {
   if (!BLOTATO_API_KEY) {
@@ -50,15 +59,8 @@ export interface CreatePostInput {
   text: string
   /** Public image / video URLs Blotato will fetch. */
   mediaUrls: string[]
-  /** Override the default IG account; otherwise uses BLOTATO_INSTAGRAM_ACCOUNT_ID. */
+  /** Override the default account for this platform. */
   accountId?: string
-  /**
-   * Instagram surface. Omit for a regular feed post (single or carousel).
-   * "reel" for a single-video reel; "story" for a story. Note that Blotato's
-   * docs claim mediaType defaults to "reel" if omitted, but empirically a
-   * multi-URL submission with no mediaType is interpreted as a carousel.
-   */
-  mediaType?: 'reel' | 'story'
 }
 
 export interface CreatePostResponse {
@@ -75,37 +77,38 @@ export interface CreatePostResponse {
   message?: string
 }
 
-export async function createInstagramPost(
+interface PlatformConfig {
+  platform: string
+  /** Blotato's `target.targetType` value (same as platform for IG/LinkedIn). */
+  targetType: string
+  extraTargetFields?: Record<string, unknown>
+}
+
+async function createPost(
+  config: PlatformConfig,
+  accountId: string,
   input: CreatePostInput
 ): Promise<CreatePostResponse> {
-  const accountId = input.accountId ?? BLOTATO_INSTAGRAM_ACCOUNT_ID
-  if (!accountId) {
-    throw new Error(
-      'BLOTATO_INSTAGRAM_ACCOUNT_ID not set and no accountId provided'
-    )
-  }
   if (input.mediaUrls.length === 0) {
-    throw new Error('mediaUrls must not be empty for an Instagram post')
+    throw new Error(`mediaUrls must not be empty for a ${config.platform} post`)
   }
 
-  // Blotato's real schema (per help.blotato.com/api):
+  // Blotato schema:
   //   { post: { accountId, content: { platform, text, mediaUrls },
-  //             target: { targetType, mediaType? } },
+  //             target: { targetType, ...extra } },
   //     scheduledTime?, useNextFreeSlot? }
-  // Earlier versions of this file sent fields flat at the top level, which
-  // got a 400 "body must have required property 'post'".
-  const target: Record<string, unknown> = { targetType: 'instagram' }
-  if (input.mediaType) target.mediaType = input.mediaType
-
   const body: Record<string, unknown> = {
     post: {
       accountId,
       content: {
-        platform: 'instagram',
+        platform: config.platform,
         text: input.text,
         mediaUrls: input.mediaUrls,
       },
-      target,
+      target: {
+        targetType: config.targetType,
+        ...(config.extraTargetFields ?? {}),
+      },
     },
   }
   if (input.scheduledTime) body.scheduledTime = input.scheduledTime
@@ -118,9 +121,66 @@ export async function createInstagramPost(
   })
   const text = await res.text()
   if (!res.ok) {
-    throw new Error(`blotato create post failed: ${res.status} ${text}`)
+    throw new Error(
+      `blotato create ${config.platform} post failed: ${res.status} ${text}`
+    )
   }
   return JSON.parse(text) as CreatePostResponse
+}
+
+export async function createInstagramPost(
+  input: CreatePostInput & {
+    /**
+     * Instagram surface. Omit for a regular feed post (single or carousel).
+     * "reel" for a single-video reel; "story" for a story. Empirically a
+     * multi-URL submission with no mediaType is interpreted as a carousel.
+     */
+    mediaType?: 'reel' | 'story'
+  }
+): Promise<CreatePostResponse> {
+  const accountId = input.accountId ?? BLOTATO_INSTAGRAM_ACCOUNT_ID
+  if (!accountId) {
+    throw new Error(
+      'BLOTATO_INSTAGRAM_ACCOUNT_ID not set and no accountId provided'
+    )
+  }
+  const extraTargetFields = input.mediaType
+    ? { mediaType: input.mediaType }
+    : undefined
+  return createPost(
+    {
+      platform: 'instagram',
+      targetType: 'instagram',
+      extraTargetFields,
+    },
+    accountId,
+    input
+  )
+}
+
+export async function createLinkedInPost(
+  input: CreatePostInput & {
+    /** Override the personal-vs-company page choice. Defaults to env. */
+    pageId?: string
+  }
+): Promise<CreatePostResponse> {
+  const accountId = input.accountId ?? BLOTATO_LINKEDIN_ACCOUNT_ID
+  if (!accountId) {
+    throw new Error(
+      'BLOTATO_LINKEDIN_ACCOUNT_ID not set and no accountId provided'
+    )
+  }
+  const pageId = input.pageId ?? BLOTATO_LINKEDIN_PAGE_ID
+  const extraTargetFields = pageId ? { pageId } : undefined
+  return createPost(
+    {
+      platform: 'linkedin',
+      targetType: 'linkedin',
+      extraTargetFields,
+    },
+    accountId,
+    input
+  )
 }
 
 export async function getPostStatus(
