@@ -364,6 +364,10 @@ interface MapsStateInput {
   survivors_with_ig?: Array<{ handle: string; item: RawMapsItem }>
   survivors_without_ig?: RawMapsItem[]
   apify_ig_run_id?: string
+  // Scoring pagination cursors — each poll processes one batch and
+  // persists progress so we stay inside Vercel's 60s function cap.
+  score_vision_index?: number
+  score_metadata_index?: number
 }
 
 // ============================================================================
@@ -870,81 +874,87 @@ async function handleMapsCategoryMode(
   // ---------------------------------------------------------------
   // STAGE C — ready_to_score: vision-score survivors_with_ig,
   //                            metadata-score survivors_without_ig
+  //
+  // Paginated across polls — each invocation processes ONE batch
+  // (2 vision OR 4 metadata) and persists progress. The next poll
+  // picks up where this one left off. Keeps every request well
+  // inside the 60s budget regardless of how many survivors we have.
   // ---------------------------------------------------------------
+  const VISION_BATCH = 2
+  const META_BATCH = 4
   const survivors_with_ig = input.survivors_with_ig ?? []
   const survivors_without_ig = input.survivors_without_ig ?? []
   const minIcpScore = input.minIcpScore ?? 6
-  const skipped: SkippedEntry[] = ((run.skipped as unknown) as SkippedEntry[]) ?? []
-  const newLeadIds: string[] = []
+  const visionIdx = input.score_vision_index ?? 0
+  const metaIdx = input.score_metadata_index ?? 0
+  const carriedSkipped = ((run.skipped as unknown) as SkippedEntry[]) ?? []
+  const carriedLeadIds = (run.lead_ids ?? []) as string[]
+  const monthKey = new Date().toISOString().slice(0, 7).replace('-', '_')
+  const source = `apify_maps_${monthKey}`
+
+  // Process ONE batch per poll. Vision first (slower per call), then metadata.
+  const scoredThisPoll: { handle: string | null; item: RawMapsItem; score: IcpScore | null }[] = []
+  let nextVisionIdx = visionIdx
+  let nextMetaIdx = metaIdx
+  let profilesByHandle: Map<string, RawProfileItem> | null = null
+
+  if (visionIdx < survivors_with_ig.length) {
+    // Fetch profiles lazily (only when we still have vision-scoring to do).
+    profilesByHandle = new Map<string, RawProfileItem>()
+    if (input.apify_ig_run_id) {
+      try {
+        const igRun = await apifyClient.run(input.apify_ig_run_id).get()
+        if (igRun?.status === 'SUCCEEDED' && igRun.defaultDatasetId) {
+          const { items } = await apifyClient
+            .dataset(igRun.defaultDatasetId)
+            .listItems()
+          for (const it of items as unknown as RawProfileItem[]) {
+            if (it.username) {
+              profilesByHandle.set(it.username.toLowerCase(), it)
+            }
+          }
+        }
+      } catch {
+        // fall through — vision survivors degrade to metadata-only
+      }
+    }
+    const batch = survivors_with_ig.slice(visionIdx, visionIdx + VISION_BATCH)
+    const results = await Promise.all(
+      batch.map(async ({ handle, item }) => {
+        const profile = profilesByHandle!.get(handle)
+        if (!profile) {
+          return { handle, item, score: await scoreMapsMetadataOnly(item) }
+        }
+        return { handle, item, score: await scoreWithVision(item, profile) }
+      })
+    )
+    scoredThisPoll.push(...results)
+    nextVisionIdx = visionIdx + batch.length
+  } else if (metaIdx < survivors_without_ig.length) {
+    const batch = survivors_without_ig.slice(metaIdx, metaIdx + META_BATCH)
+    const results = await Promise.all(
+      batch.map(async (item) => ({
+        handle: null as string | null,
+        item,
+        score: await scoreMapsMetadataOnly(item),
+      }))
+    )
+    scoredThisPoll.push(...results)
+    nextMetaIdx = metaIdx + batch.length
+  }
+
+  // Insert qualifying leads from this batch.
+  const skippedThisPoll: SkippedEntry[] = []
   const newLeadSummary: {
     id: string
     business_name: string
     ig_handle: string
     icpScore?: number
   }[] = []
-  const monthKey = new Date().toISOString().slice(0, 7).replace('-', '_')
-  const source = `apify_maps_${monthKey}`
-
-  // Fetch IG profiles if we had a run.
-  const profilesByHandle = new Map<string, RawProfileItem>()
-  if (input.apify_ig_run_id) {
-    try {
-      const igRun = await apifyClient.run(input.apify_ig_run_id).get()
-      if (igRun?.status === 'SUCCEEDED' && igRun.defaultDatasetId) {
-        const { items } = await apifyClient
-          .dataset(igRun.defaultDatasetId)
-          .listItems()
-        for (const it of items as unknown as RawProfileItem[]) {
-          if (it.username) {
-            profilesByHandle.set(it.username.toLowerCase(), it)
-          }
-        }
-      }
-    } catch {
-      // proceed without profiles — falls back to metadata
-    }
-  }
-
-  // Score vision-equipped survivors in parallel batches of 3.
-  const visionScored: { handle: string; item: RawMapsItem; score: IcpScore | null }[] = []
-  for (let i = 0; i < survivors_with_ig.length; i += 3) {
-    const batch = survivors_with_ig.slice(i, i + 3)
-    const results = await Promise.all(
-      batch.map(async ({ handle, item }) => {
-        const profile = profilesByHandle.get(handle)
-        if (!profile) {
-          // No profile data — degrade to metadata-only.
-          const score = await scoreMapsMetadataOnly(item)
-          return { handle, item, score }
-        }
-        const score = await scoreWithVision(item, profile)
-        return { handle, item, score }
-      })
-    )
-    visionScored.push(...results)
-  }
-
-  // Score metadata-only survivors in parallel batches of 4.
-  const metadataScored: { handle: null; item: RawMapsItem; score: IcpScore | null }[] = []
-  for (let i = 0; i < survivors_without_ig.length; i += 4) {
-    const batch = survivors_without_ig.slice(i, i + 4)
-    const results = await Promise.all(
-      batch.map(async (item) => ({
-        handle: null,
-        item,
-        score: await scoreMapsMetadataOnly(item),
-      }))
-    )
-    metadataScored.push(...results)
-  }
-
-  // Insert qualifying leads.
-  const allScored: { handle: string | null; item: RawMapsItem; score: IcpScore | null }[] =
-    [...visionScored, ...metadataScored]
-  for (const { handle, item, score } of allScored) {
+  for (const { handle, item, score } of scoredThisPoll) {
     const title = (item.title ?? '').trim()
     if (!score) {
-      skipped.push({
+      skippedThisPoll.push({
         ig_handle: title,
         reason: 'scorer_error',
         detail: 'Anthropic call failed (timeout/5xx)',
@@ -952,7 +962,7 @@ async function handleMapsCategoryMode(
       continue
     }
     if (score.score < minIcpScore) {
-      skipped.push({
+      skippedThisPoll.push({
         ig_handle: title,
         reason: 'low_icp_score',
         detail: `${score.score}/10 (${score.tier}) — ${score.disqualifiers.join('; ').slice(0, 200)}`,
@@ -971,7 +981,7 @@ async function handleMapsCategoryMode(
       .limit(1)
       .maybeSingle()
     if (existing) {
-      skipped.push({
+      skippedThisPoll.push({
         ig_handle: handle ?? title,
         reason: 'already_exists',
         detail: `lead ${existing.id} already covers "${title}"`,
@@ -979,7 +989,7 @@ async function handleMapsCategoryMode(
       continue
     }
 
-    const profile = handle ? profilesByHandle.get(handle) : undefined
+    const profile = handle ? profilesByHandle?.get(handle) : undefined
     const latestPostImageUrls = profile
       ? (profile.latestPosts ?? [])
           .filter((p) => typeof p.displayUrl === 'string')
@@ -1038,14 +1048,13 @@ async function handleMapsCategoryMode(
       .select('id, business_name')
       .single()
     if (leadErr || !leadRow) {
-      skipped.push({
+      skippedThisPoll.push({
         ig_handle: handle ?? title,
         reason: 'insert_failed',
         detail: leadErr?.message ?? 'unknown',
       })
       continue
     }
-    newLeadIds.push(leadRow.id)
     newLeadSummary.push({
       id: leadRow.id,
       business_name: leadRow.business_name,
@@ -1054,13 +1063,47 @@ async function handleMapsCategoryMode(
     })
   }
 
-  const insertFailures = skipped.filter((s) => s.reason === 'insert_failed').length
+  // Merge this poll's results into the carried run state.
+  const mergedSkipped = [...carriedSkipped, ...skippedThisPoll]
+  const mergedLeadIds = [...carriedLeadIds, ...newLeadSummary.map((s) => s.id)]
+
+  // More work? Persist progress + return running.
+  const moreToScore =
+    nextVisionIdx < survivors_with_ig.length ||
+    nextMetaIdx < survivors_without_ig.length
+  if (moreToScore) {
+    const newInput: MapsStateInput = {
+      ...input,
+      score_vision_index: nextVisionIdx,
+      score_metadata_index: nextMetaIdx,
+    }
+    await supabase
+      .from('discovery_runs')
+      .update({
+        input: newInput as unknown as Json,
+        skipped: mergedSkipped as unknown as Json,
+        lead_ids: mergedLeadIds,
+      })
+      .eq('id', run.id)
+    const total = survivors_with_ig.length + survivors_without_ig.length
+    const done = nextVisionIdx + nextMetaIdx
+    return NextResponse.json({
+      status: 'running',
+      stage,
+      progressMessage: `Scoring ${done}/${total}…`,
+      newLeads: newLeadSummary,
+      skipped: skippedThisPoll,
+    })
+  }
+
+  // Final batch — finalize the run.
+  const insertFailures = mergedSkipped.filter((s) => s.reason === 'insert_failed').length
   const finalStatus =
-    newLeadIds.length > 0
-      ? skipped.length > 0
+    mergedLeadIds.length > 0
+      ? mergedSkipped.length > 0
         ? 'partial'
         : 'succeeded'
-      : skipped.length > 0 && insertFailures === skipped.length
+      : mergedSkipped.length > 0 && insertFailures === mergedSkipped.length
         ? 'failed'
         : 'succeeded'
 
@@ -1068,8 +1111,8 @@ async function handleMapsCategoryMode(
     .from('discovery_runs')
     .update({
       status: finalStatus,
-      lead_ids: newLeadIds,
-      skipped: skipped as unknown as Json,
+      lead_ids: mergedLeadIds,
+      skipped: mergedSkipped as unknown as Json,
       completed_at: new Date().toISOString(),
     })
     .eq('id', run.id)
@@ -1079,6 +1122,6 @@ async function handleMapsCategoryMode(
     apifyRunId: run.apify_run_id,
     apifyIgRunId: input.apify_ig_run_id,
     newLeads: newLeadSummary,
-    skipped,
+    skipped: mergedSkipped,
   })
 }
