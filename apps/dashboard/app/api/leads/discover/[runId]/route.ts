@@ -961,14 +961,10 @@ async function handleMapsCategoryMode(
       })
       continue
     }
-    if (score.score < minIcpScore) {
-      skippedThisPoll.push({
-        ig_handle: title,
-        reason: 'low_icp_score',
-        detail: `${score.score}/10 (${score.tier}) — ${score.disqualifiers.join('; ').slice(0, 200)}`,
-      })
-      continue
-    }
+    // Note: we used to skip score < minIcpScore here. Now we keep all
+    // scored leads — they're sorted by opportunity_score on /leads, so
+    // low-score ones fall to the bottom naturally, and you can still
+    // review the rationale before deciding to pass.
     const { data: existing } = await supabase
       .from('leads')
       .select('id')
