@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@shaq-os/supabase-client/server'
-import { fetchNotionPageForPush, markRowScheduled } from '@/lib/notion'
+import {
+  fetchNotionPageForPush,
+  markRowScheduled,
+  toDriveDownloadUrl,
+} from '@/lib/notion'
 import { createInstagramPost } from '@/lib/blotato'
 
 export const maxDuration = 30
@@ -13,10 +17,12 @@ const Body = z.object({
    */
   scheduledTime: z.string().datetime().optional(),
   /**
-   * Optional override for the image URL if Shaq has uploaded the final
-   * asset elsewhere and pasted it into a different column.
+   * Optional override for the media URL(s). Supports either a single URL
+   * (back-compat with the old single-image flow) or an array for carousels.
+   * Drive view-URLs are auto-transformed to direct-download form.
    */
   imageUrlOverride: z.url().optional(),
+  mediaUrlsOverride: z.array(z.url()).min(1).max(10).optional(),
 })
 
 export async function POST(
@@ -65,13 +71,18 @@ export async function POST(
     )
   }
 
-  const imageUrl = bodyParsed.data.imageUrlOverride ?? page.imageUrl
-  if (!imageUrl) {
+  const overrideUrls =
+    bodyParsed.data.mediaUrlsOverride ??
+    (bodyParsed.data.imageUrlOverride
+      ? [bodyParsed.data.imageUrlOverride]
+      : null)
+  const mediaUrls = (overrideUrls ?? page.imageUrls).map(toDriveDownloadUrl)
+  if (mediaUrls.length === 0) {
     return NextResponse.json(
       {
-        error: 'no image url',
+        error: 'no media url',
         message:
-          'Notion page has no Image or Drive Link populated. Paste the final asset URL into the Image column then retry.',
+          'Notion page has no Image or Drive Link populated. Add slides to the Image (Files & media) column then retry.',
       },
       { status: 400 }
     )
@@ -90,7 +101,7 @@ export async function POST(
   try {
     blotatoResp = await createInstagramPost({
       text: page.caption,
-      mediaUrls: [imageUrl],
+      mediaUrls,
       scheduledTime: bodyParsed.data.scheduledTime,
     })
   } catch (e) {

@@ -30,6 +30,9 @@ function client(): Client {
 }
 
 type RichText = { plain_text: string }
+type NotionFile =
+  | { type: 'external'; name?: string; external: { url: string } }
+  | { type: 'file'; name?: string; file: { url: string; expiry_time?: string } }
 type NotionPageProps = Record<
   string,
   | { type: 'title'; title: RichText[] }
@@ -40,6 +43,7 @@ type NotionPageProps = Record<
   | { type: 'number'; number: number | null }
   | { type: 'url'; url: string | null }
   | { type: 'date'; date: { start: string } | null }
+  | { type: 'files'; files: NotionFile[] }
   | undefined
 >
 
@@ -72,6 +76,22 @@ function numberVal(p: NotionPageProps[string]): number | null {
 function urlVal(p: NotionPageProps[string]): string | null {
   if (!p || p.type !== 'url') return null
   return p.url
+}
+
+function filesUrls(p: NotionPageProps[string]): string[] {
+  if (!p || p.type !== 'files') return []
+  return p.files
+    .map((f) => (f.type === 'external' ? f.external.url : f.file.url))
+    .filter((u): u is string => Boolean(u))
+}
+
+// Drive `/file/d/<id>/view` URLs return an HTML preview page when fetched
+// by a media client (Blotato). The `uc?export=download&id=<id>` form 303s
+// to drive.usercontent.google.com which serves the raw bytes. Idempotent —
+// passes through anything that isn't a Drive file URL.
+export function toDriveDownloadUrl(url: string): string {
+  const m = url.match(/\/file\/d\/([^/]+)/)
+  return m ? `https://drive.google.com/uc?export=download&id=${m[1]}` : url
 }
 
 /**
@@ -132,7 +152,10 @@ export interface NotionPageForPush {
   title: string
   status: string
   caption: string
-  imageUrl: string | null
+  // Carousel-ready: every external URL from the Image (Files & media)
+  // column, in slide order, with Drive view-URLs transformed into their
+  // direct-download form. Empty for posts without media.
+  imageUrls: string[]
   client: string | null
   scheduledDateGuess: string | null
 }
@@ -148,12 +171,22 @@ export async function fetchNotionPageForPush(
   const notion = client()
   const page = await notion.pages.retrieve({ page_id: pageId })
   const p = (page as { properties: NotionPageProps }).properties
+  // Prefer Image (Files & media, multi). Fall back to Drive Link (URL,
+  // single) for older rows written before the schema flip.
+  const filesFromImage = filesUrls(p['Image']).map(toDriveDownloadUrl)
+  const legacySingle = urlVal(p['Drive Link'])
+  const imageUrls =
+    filesFromImage.length > 0
+      ? filesFromImage
+      : legacySingle
+        ? [toDriveDownloadUrl(legacySingle)]
+        : []
   return {
     pageId,
     title: plain(p['Title']),
     status: selectName(p['Status']) ?? '',
     caption: plain(p['Draft Caption']),
-    imageUrl: urlVal(p['Image']) ?? urlVal(p['Drive Link']),
+    imageUrls,
     client: selectName(p['Client']),
     scheduledDateGuess: null,
   }

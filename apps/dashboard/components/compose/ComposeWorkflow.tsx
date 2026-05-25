@@ -462,6 +462,18 @@ export function ComposeWorkflow() {
     setError(null)
     setNotionSendResult(null)
 
+    // Drive textarea → one URL per line, in slide order.
+    const driveUrls = notionImageUrl
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const mergeUrls = (extra: string[] = []): string[] | undefined => {
+      const merged = Array.from(
+        new Set([...extra, ...driveUrls, ...notionImageUrls])
+      ).slice(0, 10)
+      return merged.length > 0 ? merged : undefined
+    }
+
     const items: Array<{
       title: string
       format: Format
@@ -492,8 +504,7 @@ export function ComposeWorkflow() {
           ? voice.result.hashtags.map((h) => h.replace(/^#/, ''))
           : undefined,
         scheduledDate: notionScheduledDate || undefined,
-        imageUrl: notionImageUrl.trim() || undefined,
-        imageUrls: notionImageUrls.length ? notionImageUrls : undefined,
+        imageUrls: mergeUrls(),
         shootName: voice.client.trim() || `Voice: ${topic.slice(0, 50)}`,
       })
     } else if (mode === 'fromImages' && imageComposition) {
@@ -517,17 +528,9 @@ export function ComposeWorkflow() {
         hook: imageComposition.hook,
         hashtags: hashtagsToSend.length ? hashtagsToSend : undefined,
         scheduledDate: notionScheduledDate || undefined,
-        // The composed images ARE the carousel — auto-attach them to the
-        // Send to Notion payload so the user doesn't have to re-upload.
-        imageUrls:
-          fromImagesUrls.length > 0
-            ? Array.from(
-                new Set([...fromImagesUrls, ...notionImageUrls])
-              ).slice(0, 10)
-            : notionImageUrls.length
-              ? notionImageUrls
-              : undefined,
-        imageUrl: notionImageUrl.trim() || undefined,
+        // The composed images ARE the carousel — auto-attach them. mergeUrls
+        // dedupes alongside any Drive URLs + drag-dropped uploads.
+        imageUrls: mergeUrls(fromImagesUrls),
         shootName:
           imageComposition.suggestedClient ??
           fromImagesClient.trim() ??
@@ -550,8 +553,7 @@ export function ComposeWorkflow() {
             ? idea.sharpened!.hashtags.map((h) => h.replace(/^#/, ''))
             : undefined,
           scheduledDate: notionScheduledDate || undefined,
-          imageUrl: notionImageUrl.trim() || undefined,
-          imageUrls: notionImageUrls.length ? notionImageUrls : undefined,
+          imageUrls: mergeUrls(),
           shootName: `Brainstorm: ${topic.slice(0, 50)}`,
         })
       }
@@ -1438,13 +1440,18 @@ export function ComposeWorkflow() {
             </label>
             <label className="block">
               <span className="text-xs text-zinc-600">
-                Drive link{' '}
-                <span className="text-zinc-400">(if hosted elsewhere)</span>
+                Drive links{' '}
+                <span className="text-zinc-400">
+                  (one URL per line — order = carousel slide order)
+                </span>
               </span>
-              <Input
+              <Textarea
                 value={notionImageUrl}
                 onChange={(e) => setNotionImageUrl(e.target.value)}
-                placeholder="https://drive.google.com/…"
+                placeholder={
+                  'https://drive.google.com/file/d/<slide-1-id>/view\nhttps://drive.google.com/file/d/<slide-2-id>/view\nhttps://drive.google.com/file/d/<slide-3-id>/view'
+                }
+                rows={3}
                 disabled={isBusy}
               />
             </label>
@@ -1522,7 +1529,7 @@ export function ComposeWorkflow() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs text-zinc-500">
               {mode === 'brainstorm'
-                ? 'Same status/date/Drive link applies to every selected idea.'
+                ? 'Same status/date/Drive links apply to every selected idea.'
                 : 'Caption used: '}
               {mode === 'voice' && voice.result?.fullPost
                 ? 'full post (caption + hashtags inline)'

@@ -52,14 +52,27 @@ export interface CreatePostInput {
   mediaUrls: string[]
   /** Override the default IG account; otherwise uses BLOTATO_INSTAGRAM_ACCOUNT_ID. */
   accountId?: string
+  /**
+   * Instagram surface. Omit for a regular feed post (single or carousel).
+   * "reel" for a single-video reel; "story" for a story. Note that Blotato's
+   * docs claim mediaType defaults to "reel" if omitted, but empirically a
+   * multi-URL submission with no mediaType is interpreted as a carousel.
+   */
+  mediaType?: 'reel' | 'story'
 }
 
 export interface CreatePostResponse {
   postSubmissionId: string
-  status: 'in-progress' | 'published' | 'scheduled' | 'failed' | string
+  /**
+   * Only the /status endpoint returns this. The create endpoint returns
+   * just { postSubmissionId, message } — leaving the field optional so
+   * callers don't NPE when reading it after create.
+   */
+  status?: 'in-progress' | 'published' | 'scheduled' | 'failed' | string
   publicUrl?: string
   errorMessage?: string
   scheduledTime?: string
+  message?: string
 }
 
 export async function createInstagramPost(
@@ -75,11 +88,25 @@ export async function createInstagramPost(
     throw new Error('mediaUrls must not be empty for an Instagram post')
   }
 
+  // Blotato's real schema (per help.blotato.com/api):
+  //   { post: { accountId, content: { platform, text, mediaUrls },
+  //             target: { targetType, mediaType? } },
+  //     scheduledTime?, useNextFreeSlot? }
+  // Earlier versions of this file sent fields flat at the top level, which
+  // got a 400 "body must have required property 'post'".
+  const target: Record<string, unknown> = { targetType: 'instagram' }
+  if (input.mediaType) target.mediaType = input.mediaType
+
   const body: Record<string, unknown> = {
-    accountId,
-    platform: 'instagram',
-    text: input.text,
-    mediaUrls: input.mediaUrls,
+    post: {
+      accountId,
+      content: {
+        platform: 'instagram',
+        text: input.text,
+        mediaUrls: input.mediaUrls,
+      },
+      target,
+    },
   }
   if (input.scheduledTime) body.scheduledTime = input.scheduledTime
   if (input.useNextFreeSlot) body.useNextFreeSlot = true
