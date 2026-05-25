@@ -24,7 +24,9 @@ const ResultSchema = z.object({
   ctaUsed: z.string().min(1).max(80),
   confidence: z.number().int().min(1).max(3),
   flags: z.array(z.string().min(3).max(200)).max(5),
-  hashtags: z.array(z.string().min(2).max(60)).max(15).default([]),
+  // Hard cap matches Blotato/Instagram. Prompt asks for 3-5; schema
+  // enforces the upper bound so a model overshoot fails fast.
+  hashtags: z.array(z.string().min(2).max(60)).max(5).default([]),
   fullPost: z.string().max(2400).nullable().default(null),
 })
 

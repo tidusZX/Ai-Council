@@ -157,7 +157,10 @@ export interface NotionPageForPush {
   // direct-download form. Empty for posts without media.
   imageUrls: string[]
   client: string | null
-  scheduledDateGuess: string | null
+  // ISO yyyy-mm-dd from the Notion `Scheduled Date` column, or null if
+  // unset. Push-to-Blotato uses this to derive scheduledTime; rows with
+  // no date fall through to Blotato's next-free-slot queue.
+  scheduledDate: string | null
 }
 
 /**
@@ -188,7 +191,7 @@ export async function fetchNotionPageForPush(
     caption: plain(p['Draft Caption']),
     imageUrls,
     client: selectName(p['Client']),
-    scheduledDateGuess: null,
+    scheduledDate: dateVal(p['Scheduled Date']),
   }
 }
 

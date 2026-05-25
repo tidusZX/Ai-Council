@@ -27,7 +27,9 @@ const ResultSchema = z.object({
   hook: z.string().min(5).max(300),
   format: z.enum(['CAROUSEL', 'SINGLE', 'EDUCATIONAL', 'RE-EDIT']),
   draftCaption: z.string().min(20).max(800),
-  hashtags: z.array(z.string().min(2).max(60)).min(3).max(15),
+  // Hard cap matches Blotato/Instagram. Prompt asks for 3-5; schema
+  // enforces the upper bound so a model overshoot fails fast.
+  hashtags: z.array(z.string().min(2).max(60)).min(3).max(5),
   inferredSubject: z.string().min(5).max(600),
   suggestedClient: z.string().max(120).nullable(),
   confidence: z.number().int().min(1).max(3),

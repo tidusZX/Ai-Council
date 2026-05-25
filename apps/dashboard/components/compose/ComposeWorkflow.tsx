@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -454,6 +454,54 @@ export function ComposeWorkflow() {
       setPhase('idle')
     }
   }
+
+  // Blotato/Instagram caps captions at 5 hashtags. Live-count whichever
+  // caption *will* be sent (depends on mode + sharpener toggle) so the
+  // user sees the problem before clicking Send to Notion.
+  const hashtagWarning = useMemo(() => {
+    function count(s: string | null | undefined): number {
+      return s ? (s.match(/(?:^|\s)#\w+/g) ?? []).length : 0
+    }
+    if (mode === 'voice') {
+      const text =
+        voice.result?.fullPost ?? voice.result?.sharpenedCaption ?? null
+      const c = count(text)
+      return c > 5 ? { count: c, where: null as string | null } : null
+    }
+    if (mode === 'fromImages') {
+      const useSharp = useImageCompSharpened && imageCompSharpened
+      const text = useSharp
+        ? (imageCompSharpened!.fullPost ?? imageCompSharpened!.sharpenedCaption)
+        : (imageComposition?.draftCaption ?? null)
+      const c = count(text)
+      return c > 5 ? { count: c, where: null as string | null } : null
+    }
+    if (mode === 'brainstorm') {
+      let worst: { count: number; where: string | null } | null = null
+      for (const i of Array.from(checked)) {
+        const idea = ideas[i]
+        if (!idea) continue
+        const useSharp = idea.useSharpened && idea.sharpened
+        const text = useSharp
+          ? (idea.sharpened!.fullPost ?? idea.sharpened!.sharpenedCaption)
+          : idea.draftCaption
+        const c = count(text)
+        if (c > 5 && (!worst || c > worst.count)) {
+          worst = { count: c, where: idea.title }
+        }
+      }
+      return worst
+    }
+    return null
+  }, [
+    mode,
+    voice.result,
+    useImageCompSharpened,
+    imageCompSharpened,
+    imageComposition,
+    checked,
+    ideas,
+  ])
 
   // Single unified Notion writer. Builds an items[] payload based on mode +
   // current state, then POSTs /api/import-existing (the same endpoint /import
@@ -1526,6 +1574,14 @@ export function ComposeWorkflow() {
             ) : null}
           </div>
 
+          {hashtagWarning ? (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              ⚠️ {hashtagWarning.count} hashtags
+              {hashtagWarning.where ? ` in "${hashtagWarning.where}"` : ''} —
+              Blotato/Instagram caps Instagram posts at 5. Trim the caption
+              before sending, or the push-to-Blotato step will reject this row.
+            </p>
+          ) : null}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs text-zinc-500">
               {mode === 'brainstorm'

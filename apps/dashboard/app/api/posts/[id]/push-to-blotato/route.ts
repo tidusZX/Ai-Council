@@ -10,20 +10,33 @@ import { createInstagramPost } from '@/lib/blotato'
 
 export const maxDuration = 30
 
+// Blotato's documented Instagram constraint. The platform itself allows
+// more, but Blotato's API validates server-side and rejects past this.
+const MAX_HASHTAGS = 5
+
+// Default scheduling time when a row has Scheduled Date but no explicit
+// timestamp: 9am Singapore (01:00 UTC). Picked because morning IG check-in
+// is when reach concentrates; safe default until per-post time picker ships.
+const DEFAULT_POST_TIME_UTC = '01:00:00Z'
+
 const Body = z.object({
   /**
-   * Optional ISO 8601 — if omitted, schedules at Blotato's next free slot.
-   * Front-end usually passes the computed scheduled date from the plan.
+   * Optional ISO 8601. If omitted, the route derives scheduling from the
+   * Notion row's `Scheduled Date` (if set) or falls back to Blotato's
+   * next-free-slot queue. Direct immediate publishing is NEVER the default.
    */
   scheduledTime: z.string().datetime().optional(),
-  /**
-   * Optional override for the media URL(s). Supports either a single URL
-   * (back-compat with the old single-image flow) or an array for carousels.
-   * Drive view-URLs are auto-transformed to direct-download form.
-   */
   imageUrlOverride: z.url().optional(),
   mediaUrlsOverride: z.array(z.url()).min(1).max(10).optional(),
 })
+
+function countHashtags(text: string): number {
+  return (text.match(/(?:^|\s)#\w+/g) ?? []).length
+}
+
+function looksLikeDriveFolder(url: string): boolean {
+  return /drive\.google\.com\/.*\/folders\//i.test(url)
+}
 
 export async function POST(
   req: Request,
@@ -76,8 +89,8 @@ export async function POST(
     (bodyParsed.data.imageUrlOverride
       ? [bodyParsed.data.imageUrlOverride]
       : null)
-  const mediaUrls = (overrideUrls ?? page.imageUrls).map(toDriveDownloadUrl)
-  if (mediaUrls.length === 0) {
+  const rawUrls = overrideUrls ?? page.imageUrls
+  if (rawUrls.length === 0) {
     return NextResponse.json(
       {
         error: 'no media url',
@@ -87,6 +100,23 @@ export async function POST(
       { status: 400 }
     )
   }
+
+  // Drive folder URLs aren't fetchable — Blotato responds with a terse
+  // "Invalid Google Drive URL format" 422. Catch it here with a useful
+  // message + the exact form to use instead.
+  const folderUrl = rawUrls.find(looksLikeDriveFolder)
+  if (folderUrl) {
+    return NextResponse.json(
+      {
+        error: 'drive folder url not supported',
+        message: `One of the media URLs is a Drive folder, not a file: ${folderUrl}. Paste individual file URLs into the Image column instead, one per slide. Each must look like https://drive.google.com/file/d/<FILE_ID>/view.`,
+      },
+      { status: 400 }
+    )
+  }
+
+  const mediaUrls = rawUrls.map(toDriveDownloadUrl)
+
   if (!page.caption || page.caption.length < 20) {
     return NextResponse.json(
       {
@@ -97,12 +127,34 @@ export async function POST(
     )
   }
 
+  const hashtagCount = countHashtags(page.caption)
+  if (hashtagCount > MAX_HASHTAGS) {
+    return NextResponse.json(
+      {
+        error: 'too many hashtags',
+        message: `Caption has ${hashtagCount} hashtags. Blotato caps Instagram posts at ${MAX_HASHTAGS} — trim Draft Caption in Notion and retry.`,
+      },
+      { status: 400 }
+    )
+  }
+
+  // Scheduling resolution (explicit > Notion date > queue). We never want
+  // an empty timing block — that means "publish immediately" to Blotato,
+  // which is almost never what the user wants from /scheduled-pipeline.
+  const explicitTime = bodyParsed.data.scheduledTime
+  const dateFromNotion = page.scheduledDate
+    ? `${page.scheduledDate}T${DEFAULT_POST_TIME_UTC}`
+    : null
+  const scheduledTime = explicitTime ?? dateFromNotion ?? undefined
+  const useNextFreeSlot = !scheduledTime
+
   let blotatoResp
   try {
     blotatoResp = await createInstagramPost({
       text: page.caption,
       mediaUrls,
-      scheduledTime: bodyParsed.data.scheduledTime,
+      scheduledTime,
+      useNextFreeSlot,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
@@ -115,17 +167,19 @@ export async function POST(
   try {
     await markRowScheduled(pageId)
   } catch (e) {
-    // Don't fail the request if Notion writeback fails — the post is already
-    // scheduled on Blotato. Surface the warning so the user knows to
-    // flip the status manually.
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json({
       ok: true,
       blotato: blotatoResp,
+      scheduling: { scheduledTime, useNextFreeSlot },
       warning: 'pushed to Blotato but Notion status update failed',
       notionError: message,
     })
   }
 
-  return NextResponse.json({ ok: true, blotato: blotatoResp })
+  return NextResponse.json({
+    ok: true,
+    blotato: blotatoResp,
+    scheduling: { scheduledTime, useNextFreeSlot },
+  })
 }

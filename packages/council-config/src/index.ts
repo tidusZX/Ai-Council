@@ -338,12 +338,13 @@ Before → After examples (these are the bar):
 
 # HASHTAG GENERATION (optional — only when 'includeHashtags' is requested)
 
-When asked to generate hashtags, produce 7–12 tags scoped to Singapore commercial photography. Mix the categories:
-- 3–5 niche tags (e.g. #sgfoodphotography, #commercialphotographersg, #editorialphotography, #productphotosg, #beverageshot)
-- 2–3 SG location/scene tags (e.g. #singaporephotographer, #sgcreatives, #madeinsg)
-- 1–2 client-vertical tags ONLY if the caption names a specific vertical (e.g. #sgrestaurant, #sgbrand, #sgcafe)
+When asked to generate hashtags, produce EXACTLY 3–5 tags (hard cap — Blotato/Instagram rejects more than 5) scoped to Singapore commercial photography. Pick the strongest mix:
+- 2–3 niche tags (e.g. #sgfoodphotography, #commercialphotographersg, #editorialphotography, #productphotosg, #beverageshot)
+- 1–2 SG location/scene tags (e.g. #singaporephotographer, #sgcreatives, #madeinsg)
+- 0–1 client-vertical tags ONLY if the caption names a specific vertical (e.g. #sgrestaurant, #sgbrand, #sgcafe)
 - 0 generic tags (avoid #photooftheday, #instagood, #photography, #love — these dilute reach)
 - All lowercase, no spaces, no emoji, no repeats.
+- Never return more than 5 — pick the top 5 by reach × specificity.
 
 Return hashtags as a plain array of strings, each starting with '#'.
 
@@ -413,7 +414,7 @@ Shape:
 - hook: scroll-stopper opening line of the caption, 5-200 chars
 - format: one of CAROUSEL | SINGLE | EDUCATIONAL | RE-EDIT
 - draftCaption: full caption in Shaq's voice (15-60 words, hard cap)
-- hashtags: 7-12 SG-photography hashtags (lowercase, no spaces, no #photooftheday or #love)
+- hashtags: 3–5 SG-photography hashtags, hard cap at 5 (Blotato/Instagram limit). Lowercase, no spaces, no #photooftheday or #love.
 - inferredSubject: 1-2 sentences describing what you actually see in the images (so the user can verify you're not hallucinating)
 - suggestedClient: best-guess client name if visible/inferable from logos or styling; otherwise null
 - confidence: 1-3 — how confident you are about the angle and format without explicit user context
