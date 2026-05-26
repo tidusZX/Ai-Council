@@ -576,9 +576,19 @@ export function ComposeWorkflow() {
         hook: imageComposition.hook,
         hashtags: hashtagsToSend.length ? hashtagsToSend : undefined,
         scheduledDate: notionScheduledDate || undefined,
-        // The composed images ARE the carousel — auto-attach them. mergeUrls
-        // dedupes alongside any Drive URLs + drag-dropped uploads.
-        imageUrls: mergeUrls(fromImagesUrls),
+        // In From-Images mode, the composed slides ARE the carousel. We
+        // deliberately DON'T merge in Drive-textarea links or drag-dropped
+        // uploads from the Send-to-Notion form — those represent the same
+        // slides re-supplied via a different surface, and string-level
+        // dedup can't catch the Supabase-vs-Drive URL difference, so they
+        // end up appended as duplicate carousel entries (bug seen on the
+        // June 7 row: 6 unique + 4 dupes = 10 slides on IG + LinkedIn).
+        // If a user genuinely needs different slides, they should re-run
+        // From Images with new input rather than topping up via the form.
+        imageUrls:
+          fromImagesUrls.length > 0
+            ? fromImagesUrls.slice(0, 10)
+            : mergeUrls(),
         shootName:
           imageComposition.suggestedClient ??
           fromImagesClient.trim() ??
@@ -1486,6 +1496,17 @@ export function ComposeWorkflow() {
                 disabled={isBusy}
               />
             </label>
+            {mode === 'fromImages' && fromImagesUrls.length > 0 ? (
+              <p className="md:col-span-3 text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                ℹ️ From Images mode: your {fromImagesUrls.length} composed
+                slide{fromImagesUrls.length === 1 ? '' : 's'}{' '}
+                {fromImagesUrls.length === 1 ? 'is' : 'are'} auto-attached as
+                the carousel. The Drive-links textarea and upload button below
+                are <strong>ignored</strong> in this mode — they exist for
+                Voice / Brainstorm paths. To change slides, re-run From Images
+                with new input.
+              </p>
+            ) : null}
             <label className="block">
               <span className="text-xs text-zinc-600">
                 Drive links{' '}
