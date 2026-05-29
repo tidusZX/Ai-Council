@@ -1,6 +1,6 @@
 # SHAQ OS — Roadmap
 
-_Last updated: 2026-05-22_
+_Last updated: 2026-05-29_
 
 ## North Star
 
@@ -38,6 +38,7 @@ The 3 EOW apps are the **flywheel**. Lead Finder is the **conversion engine** �
 | Fly.io services (ingestion, analysis) | Analyzer | ✅ Deployed |
 | Vercel (Next.js dashboard) | Council, Analyzer | ✅ `ai-council-tan.vercel.app` |
 | Command Centre (visual launcher) | Meta — across all apps | 🟠 Built in May 21 session, state unverified |
+| **Get Archived Partner Command Centre** | Business ops layer — task register, lead list, weekly rhythm, Friday summary | ✅ Shipped — `get-archived-command-centre.vercel.app` · GitHub: `tidusZX/get-archived-command-centre` · Notion task CRUD wired; live sync pending `NOTION_TOKEN` in Vercel |
 | War Room | Wednesday workflow (HubSpot/Sheets/Notion) | 🟠 Separate concept, not blocking |
 
 ## Future apps (already partially scoped)
@@ -100,7 +101,7 @@ Pattern: **find Singapore F&B + product brands with weak visual brand → diagno
 
 ---
 
-## Current state snapshot (2026-05-22 evening)
+## Current state snapshot (2026-05-29)
 
 | Thing | State | Notes |
 |---|---|---|
@@ -108,11 +109,15 @@ Pattern: **find Singapore F&B + product brands with weak visual brand → diagno
 | Photo Qualifier scan + AI triage | ✅ Working | 2550/3206 analyzed, 137 clusters (last run 2026-05-22 22:43) |
 | Photo Qualifier → Notion export | ✅ Already wired | Auto-pushes when ideas generated |
 | Photo Qualifier post-idea planner | ✅ Working — 82 ideas | Was a partial-scan artifact on 2026-05-21, not a code bug. Full scan emits ideas as expected. Open improvement: format mix (0 EDU / 0 RE-EDIT in 82 picks) — prompt tuning candidate |
-| AI Council | 🟡 Built, unaudited | Code there, never verified end-to-end on prod |
+| AI Council | ✅ Audited 2026-05-22 | Passes end-to-end. Follow-up dialogue (Plan 06A) shipped 2026-05-24 |
 | Lead Finder schema | ✅ Migration 003 applied | No service / UI |
+| Lead Finder — 30 prospects | ✅ Seeded 2026-05-24 | `scripts/import-30-prospects.ts` loaded 30 SG brands into `leads`. Outreach kick-off ~2026-06-05 |
+| Content Planning Loop (Plan 06) | ✅ Shipped 2026-05-23 | Notion → Planner → Approve → Blotato. Phase 5 awaiting `BLOTATO_API_KEY` env var |
+| AI Council follow-up discussion (Plan 06A) | ✅ Shipped 2026-05-24 | Migration 007 on prod. "Discuss this slot" buttons in PostingPlanCard |
 | Notion DB | ✅ Live | Accepting upserts |
 | Blotato MCP | ✅ Available | Tools in stack, not yet wired |
 | Plans documented | ✅ | Roadmap + Plan 04 + Plan 06 |
+| **Get Archived Partner Command Centre** | ✅ Deployed · 🔲 Notion sync pending | Live at `get-archived-command-centre.vercel.app`. App built (task register, lead list, weekly rhythm, Friday summary). Notion CRUD wired in `lib/notionTasks.ts`. Blocked on `NOTION_TOKEN` in Vercel |
 
 ## Revised priority (2026-05-22 — based on 2-week content runway)
 
@@ -132,6 +137,7 @@ Shaq confirmed he has 2 weeks of content already done. That changes the calculus
 | 9 | Instagram cookies | ~1 hr | Convenience fix, no rush. | Backlog |
 | 10 | **Plan 06B — Standalone Ember** | ~2 hrs | Today's Ember is gated behind brainstorm-approve. User wants to paste any caption (their own, from anywhere) + optional hashtag generation + maybe whole-post composer. Surfaced 2026-05-24 during smoke test. | Queued |
 | 11 | **Plan 07 — Image-aware council** | ~4–6 hrs | Council currently text-only. Extend `/sessions/new` to accept image URLs/uploads; each member sees images via Anthropic vision input. Pre-shoot direction, post-shoot critique, content selection. Surfaced 2026-05-24 during smoke test. | Queued |
+| 12 | **Get Archived Partner Command Centre — Notion sync** | ~1 hr | `NOTION_TOKEN` not yet in Vercel. Once Shaq adds it, redeploy and run end-to-end smoke test (create/update/delete task from dashboard → appears in `My Tasks` Notion DB). Verify Owner/Priority/Dependency properties exist in Notion schema. | 🔲 Blocked on Shaq adding `NOTION_TOKEN` to Vercel |
 
 The compounding effect: Lead Finder generates leads → some convert → you deliver client work + need more leads → Plan 06 automates content so you have time for client delivery + more outreach. **Lead Finder unlocks revenue. Plan 06 unlocks time. Revenue first.**
 

@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
     '@shaq-os/supabase-client',
     '@shaq-os/council-config',
   ],
+  outputFileTracingIncludes: {
+    '/api/telegram/webhook': ['./docs/telegram-bot-faq.md'],
+  },
 }
 
 export default nextConfig
