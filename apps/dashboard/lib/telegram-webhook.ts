@@ -151,7 +151,10 @@ export async function processTelegramUpdate(
         } catch (error: unknown) {
           const detail =
             error instanceof Error ? error.message : "Unknown error";
-          await sendMessage(chatId, `Analysis failed: ${detail}`);
+          await sendMessage(
+            chatId,
+            `❌ Couldn't analyse that one.\n\n${detail}\n\nTry a different reel or check the link is public.`,
+          );
         }
       };
 

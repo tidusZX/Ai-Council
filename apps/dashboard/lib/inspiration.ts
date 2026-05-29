@@ -122,6 +122,15 @@ export async function pollInspirationUntilComplete({
     if (result.status === "complete") {
       return result;
     }
+
+    if (result.status === "failed") {
+      const raw = result as unknown as { error_message?: string };
+      const reason =
+        typeof raw.error_message === "string" && raw.error_message
+          ? raw.error_message
+          : "analysis failed";
+      throw new Error(reason);
+    }
   }
 
   throw new Error(`Inspiration job ${id} did not complete in time`);
