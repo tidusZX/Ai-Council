@@ -120,7 +120,7 @@ export default async function SessionPage({ params }: Props) {
         /* The actual council session with streaming (only if not a planning session) */
         <CouncilSession
           session={session}
-          initialMessages={messages ?? []}
+          initialMessages={(messages ?? []) as Message[]}
           initialDiscussions={discussions ?? []}
         />
       )}
