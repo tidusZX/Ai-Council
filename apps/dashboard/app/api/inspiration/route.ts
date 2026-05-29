@@ -18,6 +18,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@shaq-os/supabase-client/server'
+import { createServiceNodeClient } from '@shaq-os/supabase-client/service-node'
 
 const INGESTION_SERVICE_URL =
   process.env.INGESTION_SERVICE_URL ?? 'http://localhost:3001'
@@ -60,19 +61,18 @@ const PostBody = z.object({
 })
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
-
   // Two auth paths:
-  //  1. Telegram bot — uses x-bot-api-key header (service-to-service)
-  //  2. Dashboard — uses normal Supabase session cookie
+  //  1. Telegram bot — uses x-bot-api-key header → service role client (bypasses RLS)
+  //  2. Dashboard — uses Supabase session cookie → regular client (RLS scoped to user)
   const botKey = req.headers.get('x-bot-api-key')
   const isBotRequest = Boolean(BOT_API_KEY && botKey === BOT_API_KEY)
 
   let userId: string
+  // db is the client used for ALL database operations in this request
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let db: any
 
   if (isBotRequest) {
-    // Bot requests run under the service role — find owner by email
-    // (the single owner of this deployment).
     const ownerEmail = process.env.OWNER_EMAIL ?? ''
     if (!ownerEmail) {
       return NextResponse.json(
@@ -80,12 +80,12 @@ export async function POST(req: Request) {
         { status: 503 }
       )
     }
-    const { createServiceNodeClient } = await import(
-      '@shaq-os/supabase-client/service-node'
+    // Service client bypasses RLS — safe because this is a server-to-server path
+    db = createServiceNodeClient()
+    const { data: users } = await db.auth.admin.listUsers()
+    const owner = (users?.users ?? []).find(
+      (u: { email?: string }) => u.email === ownerEmail
     )
-    const service = createServiceNodeClient()
-    const { data: users } = await service.auth.admin.listUsers()
-    const owner = (users?.users ?? []).find((u) => u.email === ownerEmail)
     if (!owner) {
       return NextResponse.json(
         { error: `No user found with email ${ownerEmail}` },
@@ -94,7 +94,8 @@ export async function POST(req: Request) {
     }
     userId = owner.id
   } else {
-    const { data: { user } } = await supabase.auth.getUser()
+    db = await createClient()
+    const { data: { user } } = await db.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
     }
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
   const creator_handle = extractHandle(url)
 
   // 1. Create the inspiration_log row immediately so the bot has an ID to poll.
-  const { data: logRow, error: insertErr } = await supabase
+  const { data: logRow, error: insertErr } = await db
     .from('inspiration_log')
     .insert({
       owner_id: userId,
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
   //    write back to the row when it's done.
   if (!INGESTION_API_KEY) {
     // No service configured — mark as failed with a helpful message.
-    await supabase
+    await db
       .from('inspiration_log')
       .update({
         status: 'failed',
@@ -178,7 +179,7 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const body = await res.json().catch(() => null)
       const msg = body?.message || body?.error || `ingestion-service returned ${res.status}`
-      await supabase
+      await db
         .from('inspiration_log')
         .update({ status: 'failed', error_message: msg })
         .eq('id', logRow.id)
@@ -192,14 +193,14 @@ export async function POST(req: Request) {
 
     // Store the video_analysis_id if the ingestion-service returns it.
     if (job?.job_id) {
-      await supabase
+      await db
         .from('inspiration_log')
         .update({ video_analysis_id: job.job_id })
         .eq('id', logRow.id)
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
-    await supabase
+    await db
       .from('inspiration_log')
       .update({ status: 'failed', error_message: message })
       .eq('id', logRow.id)
