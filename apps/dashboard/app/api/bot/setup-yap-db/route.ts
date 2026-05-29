@@ -19,8 +19,10 @@ const BOT_KEY =
 const PARENT_PAGE_ID = '36f940f1a39180909c73c39238da7cb3'
 
 export async function GET(req: Request) {
-  const incomingKey = req.headers.get('x-bot-api-key')
-  if (!BOT_KEY || incomingKey !== BOT_KEY) {
+  const incomingKey = req.headers.get('x-bot-api-key') ?? req.headers.get('x-setup-token')
+  const setupToken = process.env.SETUP_TOKEN ?? ''
+  const validKey = (BOT_KEY && incomingKey === BOT_KEY) || (setupToken && incomingKey === setupToken)
+  if (!validKey) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
