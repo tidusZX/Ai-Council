@@ -69,18 +69,18 @@ const PHOTO_CAPTION_SYSTEM_PROMPT = [
   "Return 2-3 caption options. Keep the whole reply under 500 characters.",
 ].join(" ");
 
-const COMMAND_CENTRE_SYSTEM_PROMPT = [
-  "You convert Shaq's Telegram /cc updates into structured Command Centre updates.",
-  "The Command Centre tracks @getarchivedsg weekly tasks, owners, status, due dates, dependencies, leads, blockers, revenue, and Friday summaries.",
-  "Shaq is a Singapore commercial photographer. Keep updates operational and concise.",
-  "Return only valid JSON with keys: action, type, title, summary, owner, status, due, priority, dependency, client, amount.",
-  "action must be one of: create_task, update_task, mark_done, add_blocker, add_lead, add_revenue, add_summary, note.",
-  "type must be one of: task, blocker, lead, revenue, summary, note.",
-  "owner must be Shaq, Partner, or Shared.",
-  "status must be Planned, In Progress, Waiting, Blocked, Done, or Note.",
-  "priority must be High, Med, Low, or None.",
-  "Use null for missing optional fields.",
-].join(" ");
+const COMMAND_CENTRE_SYSTEM_PROMPT =
+  "You are a JSON-only converter. You receive a Telegram /cc command from Shaq (@getarchivedsg, Singapore commercial photographer) and output ONLY a JSON object — no explanation, no preamble, no markdown.\n\n" +
+  "Output exactly this shape:\n" +
+  '{"action":"create_task","type":"task","title":"<short title>","summary":"<one sentence>","owner":"Shaq","status":"Planned","due":"<day or date or null>","priority":"High","dependency":null,"client":null,"amount":null}\n\n' +
+  "Rules:\n" +
+  "- action: create_task | update_task | mark_done | add_blocker | add_lead | add_revenue | add_summary | note\n" +
+  "- type: task | blocker | lead | revenue | summary | note\n" +
+  "- owner: Shaq | Partner | Shared\n" +
+  "- status: Planned | In Progress | Waiting | Blocked | Done | Note\n" +
+  "- priority: High | Med | Low | None\n" +
+  "- Use null for any field not mentioned.\n" +
+  "Output ONLY the JSON object. Nothing else.";
 
 function getAnthropicApiKey(): string {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
@@ -226,13 +226,27 @@ export async function analyzeYap(rawYap: string): Promise<YapAnalysis> {
 export async function analyzeCommandCentreUpdate(
   rawUpdate: string,
 ): Promise<CommandCentreUpdate> {
-  const data = parseJsonObject(
-    await createAnthropicMessage({
-      maxTokens: 500,
-      message: rawUpdate,
-      system: COMMAND_CENTRE_SYSTEM_PROMPT,
-    }),
-  ) as Partial<CommandCentreUpdate>;
+  let data: Partial<CommandCentreUpdate> = {};
+  try {
+    data = parseJsonObject(
+      await createAnthropicMessage({
+        maxTokens: 500,
+        message: `Convert this to JSON: ${rawUpdate}`,
+        system: COMMAND_CENTRE_SYSTEM_PROMPT,
+      }),
+    ) as Partial<CommandCentreUpdate>;
+  } catch {
+    // Fallback: build a sensible create_task from the raw text so /cc never fails
+    data = {
+      action: "create_task",
+      type: "task",
+      title: rawUpdate.slice(0, 80),
+      summary: rawUpdate,
+      owner: "Shaq",
+      status: "Planned",
+      priority: "Med",
+    };
+  }
 
   return {
     action: typeof data.action === "string" ? data.action : "note",
