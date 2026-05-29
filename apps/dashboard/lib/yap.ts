@@ -173,7 +173,9 @@ export async function createYapLogEntry({
   });
 
   if (!response.ok) {
-    throw new Error(`Notion Yap Log create failed: ${response.status}`);
+    const body = await response.json().catch(() => ({}))
+    const msg = (body as { message?: string }).message ?? JSON.stringify(body)
+    throw new Error(`Notion Yap Log create failed: ${response.status} — ${msg}`)
   }
 }
 

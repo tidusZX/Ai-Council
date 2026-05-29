@@ -16,6 +16,7 @@
     "@hono/node-server": "^1.14.0",
     "@shaq-os/database-types": "workspace:*",
     "@shaq-os/supabase-client": "workspace:*",
+    "apify-client": "^2.23.3",
     "dotenv": "^16.4.0",
     "hono": "^4.6.0",
     "openai": "^4.71.0",

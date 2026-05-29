@@ -226,6 +226,9 @@ importers:
       '@shaq-os/supabase-client':
         specifier: workspace:*
         version: link:../../packages/supabase-client
+      apify-client:
+        specifier: ^2.23.3
+        version: 2.23.3
       dotenv:
         specifier: ^16.4.0
         version: 16.6.1
