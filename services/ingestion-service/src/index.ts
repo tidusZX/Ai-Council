@@ -48,6 +48,7 @@ app.use('/jobs', async (c, next) => {
 const JobsBodySchema = z.object({
   url: z.url(),
   owner_id: z.uuid(),
+  inspiration_log_id: z.uuid().optional(),
 })
 
 app.post('/jobs', async (c) => {
@@ -56,7 +57,7 @@ app.post('/jobs', async (c) => {
     return c.json({ error: 'invalid body', details: z.treeifyError(parsed.error) }, 400)
   }
 
-  const { url, owner_id } = parsed.data
+  const { url, owner_id, inspiration_log_id } = parsed.data
   const platform = inferPlatform(url)
 
   let jobId: string
@@ -69,7 +70,7 @@ app.post('/jobs', async (c) => {
 
   // Fire and forget — pipeline updates the row as it progresses. The
   // dashboard subscribes to row changes via Supabase realtime.
-  void runPipeline({ job_id: jobId, url, owner_id })
+  void runPipeline({ job_id: jobId, url, owner_id, inspiration_log_id })
 
   return c.json({ job_id: jobId, status: 'queued' }, 202)
 })

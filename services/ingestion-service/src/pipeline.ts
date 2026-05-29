@@ -19,6 +19,7 @@ const MAX_DURATION_SECONDS = 300 // 5 minutes — MVP cap
 export async function runPipeline(args: {
   job_id: string
   url: string
+  inspiration_log_id?: string
   owner_id: string
 }): Promise<void> {
   const env = loadEnv()
@@ -99,6 +100,7 @@ export async function runPipeline(args: {
         job_id: args.job_id,
         transcript,
         keyframe_urls: uploaded.map((u) => u.publicUrl),
+        inspiration_log_id: args.inspiration_log_id,
       }),
     })
     if (!res.ok) {
