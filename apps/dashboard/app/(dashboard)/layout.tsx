@@ -42,10 +42,10 @@ export default async function DashboardLayout({
               Sessions
             </Link>
             <Link
-              href="/references/analyze"
+              href="/inspiration"
               className="text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
             >
-              Analyze Videos
+              Inspiration
             </Link>
             <Link
               href="/leads"

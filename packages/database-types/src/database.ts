@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       clients: {
@@ -186,125 +161,181 @@ export type Database = {
         }
         Relationships: []
       }
+      discovery_runs: {
+        Row: {
+          apify_actor_id: string
+          apify_run_id: string | null
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input: Json
+          lead_ids: string[]
+          mode: string
+          owner_id: string
+          skipped: Json
+          status: string
+        }
+        Insert: {
+          apify_actor_id: string
+          apify_run_id?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input: Json
+          lead_ids?: string[]
+          mode: string
+          owner_id: string
+          skipped?: Json
+          status?: string
+        }
+        Update: {
+          apify_actor_id?: string
+          apify_run_id?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input?: Json
+          lead_ids?: string[]
+          mode?: string
+          owner_id?: string
+          skipped?: Json
+          status?: string
+        }
+        Relationships: []
+      }
+      inspiration_log: {
+        Row: {
+          analysis: Json | null
+          created_at: string
+          creator_handle: string | null
+          error_message: string | null
+          id: string
+          keyframe_urls: string[]
+          owner_id: string
+          platform: string | null
+          source: string
+          status: string
+          summary: string | null
+          telegram_chat_id: string | null
+          updated_at: string
+          url: string
+          video_analysis_id: string | null
+          video_title: string | null
+        }
+        Insert: {
+          analysis?: Json | null
+          created_at?: string
+          creator_handle?: string | null
+          error_message?: string | null
+          id?: string
+          keyframe_urls?: string[]
+          owner_id: string
+          platform?: string | null
+          source?: string
+          status?: string
+          summary?: string | null
+          telegram_chat_id?: string | null
+          updated_at?: string
+          url: string
+          video_analysis_id?: string | null
+          video_title?: string | null
+        }
+        Update: {
+          analysis?: Json | null
+          created_at?: string
+          creator_handle?: string | null
+          error_message?: string | null
+          id?: string
+          keyframe_urls?: string[]
+          owner_id?: string
+          platform?: string | null
+          source?: string
+          status?: string
+          summary?: string | null
+          telegram_chat_id?: string | null
+          updated_at?: string
+          url?: string
+          video_analysis_id?: string | null
+          video_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspiration_log_video_analysis_id_fkey"
+            columns: ["video_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "video_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           business_name: string
           created_at: string
           diagnosis: Json
-          // discovery_source + discovery_metadata introduced by migration
-          // 010 (Plan 04B). Optional in pre-migration selects.
-          discovery_source?: string | null
-          discovery_metadata?: Json
+          discovery_metadata: Json
+          discovery_source: string | null
           id: string
           ig_handle: string | null
           location: string | null
+          notion_page_id: string | null
           opportunity_score: number | null
           owner_id: string
           status: string
           updated_at: string
           website: string | null
-          // notion_page_id introduced by migration 011 — optional in
-          // pre-migration selects.
-          notion_page_id?: string | null
         }
         Insert: {
           business_name: string
           created_at?: string
           diagnosis?: Json
-          discovery_source?: string | null
           discovery_metadata?: Json
+          discovery_source?: string | null
           id?: string
           ig_handle?: string | null
           location?: string | null
+          notion_page_id?: string | null
           opportunity_score?: number | null
           owner_id: string
           status?: string
           updated_at?: string
           website?: string | null
-          notion_page_id?: string | null
         }
         Update: {
           business_name?: string
           created_at?: string
           diagnosis?: Json
-          discovery_source?: string | null
           discovery_metadata?: Json
+          discovery_source?: string | null
           id?: string
           ig_handle?: string | null
           location?: string | null
+          notion_page_id?: string | null
           opportunity_score?: number | null
           owner_id?: string
           status?: string
           updated_at?: string
           website?: string | null
-          notion_page_id?: string | null
-        }
-        Relationships: []
-      }
-      discovery_runs: {
-        Row: {
-          id: string
-          owner_id: string
-          mode: string
-          input: Json
-          apify_actor_id: string
-          apify_run_id: string | null
-          status: string
-          lead_ids: string[]
-          skipped: Json
-          error_message: string | null
-          cost_usd: number | null
-          created_at: string
-          completed_at: string | null
-        }
-        Insert: {
-          id?: string
-          owner_id: string
-          mode: string
-          input: Json
-          apify_actor_id: string
-          apify_run_id?: string | null
-          status?: string
-          lead_ids?: string[]
-          skipped?: Json
-          error_message?: string | null
-          cost_usd?: number | null
-          created_at?: string
-          completed_at?: string | null
-        }
-        Update: {
-          id?: string
-          owner_id?: string
-          mode?: string
-          input?: Json
-          apify_actor_id?: string
-          apify_run_id?: string | null
-          status?: string
-          lead_ids?: string[]
-          skipped?: Json
-          error_message?: string | null
-          cost_usd?: number | null
-          created_at?: string
-          completed_at?: string | null
         }
         Relationships: []
       }
       messages: {
         Row: {
-          // round_number/addressed_to/in_reply_to are introduced by
-          // migration 007 (Plan 06A). Until that migration is applied,
-          // existing rows don't return these fields — treat them as
-          // optional so pre-migration selects still typecheck. Read
-          // sites should default round_number → 1, addressed_to → [].
-          addressed_to?: string[]
+          addressed_to: string[]
           content: string
           created_at: string
           embedding: string | null
           id: string
-          in_reply_to?: string | null
+          in_reply_to: string | null
           is_complete: boolean
           role: string
-          round_number?: number
+          round_number: number
           session_id: string
           updated_at: string
         }
@@ -336,17 +367,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "messages_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "messages_in_reply_to_fkey"
             columns: ["in_reply_to"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -495,9 +526,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          // image_urls introduced by migration 008 (Plan 07). Optional in
-          // pre-migration selects; always present (defaults to []) post.
-          image_urls?: string[]
+          image_urls: string[]
           prompt: string
           status: string
           title: string
@@ -743,9 +772,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

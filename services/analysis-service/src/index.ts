@@ -42,6 +42,9 @@ const ProcessBodySchema = z.object({
   job_id: z.uuid(),
   transcript: z.string(),
   keyframe_urls: z.array(z.url()).min(1),
+  // Optional: set when triggered via /api/inspiration (Telegram bot flow).
+  // Pipeline writes analysis + summary back to inspiration_log when done.
+  inspiration_log_id: z.uuid().optional(),
 })
 
 app.post('/process', async (c) => {
