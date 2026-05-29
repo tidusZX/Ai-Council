@@ -43,6 +43,22 @@ function looksLikeDriveFolder(url: string): boolean {
   return /drive\.google\.com\/.*\/folders\//i.test(url)
 }
 
+// LinkedIn supports image carousels and single videos, but NOT multi-video
+// carousels. Detect video URLs by extension or MIME-style path so we can
+// skip LinkedIn gracefully rather than let Blotato fail silently.
+const VIDEO_EXTENSIONS = /\.(mov|mp4|m4v|avi|webm|mkv|wmv|flv|3gp)(\?.*)?$/i
+function isVideoUrl(url: string): boolean {
+  try {
+    const path = new URL(url).pathname
+    return VIDEO_EXTENSIONS.test(path)
+  } catch {
+    return VIDEO_EXTENSIONS.test(url)
+  }
+}
+function isVideoCarousel(urls: string[]): boolean {
+  return urls.length > 1 && urls.some(isVideoUrl)
+}
+
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
@@ -173,9 +189,20 @@ export async function POST(
   // if LinkedIn fails (missing env, platform-specific constraint, network),
   // we still consider the push a success and surface the LinkedIn error
   // in the response so the user knows to retry manually if they want.
+  //
+  // LinkedIn does NOT support multi-video carousels (only image carousels
+  // and single videos). Detect and skip gracefully rather than let Blotato
+  // return a confusing 4xx.
   let linkedInResp: CreatePostResponse | null = null
   let linkedInError: string | null = null
-  if (linkedInConfigured()) {
+  let linkedInSkipped: string | null = null
+
+  if (!linkedInConfigured()) {
+    // env not wired — silent skip, no message needed
+  } else if (isVideoCarousel(mediaUrls)) {
+    linkedInSkipped =
+      'video carousel — LinkedIn does not support multi-video carousels. Post manually or use a single video/image instead.'
+  } else {
     try {
       linkedInResp = await createLinkedInPost({
         text: page.caption,
@@ -197,6 +224,7 @@ export async function POST(
       blotato: igResp,
       linkedIn: linkedInResp,
       linkedInError,
+      linkedInSkipped,
       scheduling: { scheduledTime, useNextFreeSlot },
       warning: 'pushed to Blotato but Notion status update failed',
       notionError: message,
@@ -208,6 +236,7 @@ export async function POST(
     blotato: igResp,
     linkedIn: linkedInResp,
     linkedInError,
+    linkedInSkipped,
     scheduling: { scheduledTime, useNextFreeSlot },
   })
 }

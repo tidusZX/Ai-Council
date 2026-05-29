@@ -42,9 +42,14 @@ export function PipelineList({ initial }: Props) {
         throw new Error(body?.message || body?.error || `Status ${res.status}`)
       }
       const status = body?.blotato?.status ?? 'submitted'
+      const liNote = body?.linkedInSkipped
+        ? ` · LinkedIn skipped (video carousel)`
+        : body?.linkedIn
+          ? ` · LinkedIn scheduled`
+          : ''
       setPushStates((prev) => ({
         ...prev,
-        [pageId]: { state: 'done', message: `Blotato: ${status}` },
+        [pageId]: { state: 'done', message: `IG: ${status}${liNote}` },
       }))
       router.refresh()
     } catch (e) {
