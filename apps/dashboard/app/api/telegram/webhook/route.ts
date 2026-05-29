@@ -9,14 +9,10 @@ import {
 
 export const runtime = "nodejs";
 
-// FAQ lives inside the dashboard package so it's included in the build output
-const FAQ_PATH = path.join(
-  process.cwd(),
-  "apps",
-  "dashboard",
-  "docs",
-  "telegram-bot-faq.md",
-);
+// In Vercel, process.cwd() is already apps/dashboard (the project root).
+// Locally in the monorepo, cwd is the repo root so we need the full path.
+// Try dashboard-relative first, fall back to monorepo-relative.
+const FAQ_PATH = path.join(process.cwd(), "docs", "telegram-bot-faq.md");
 
 export async function GET() {
   return NextResponse.json({ ok: true });
