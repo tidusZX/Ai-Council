@@ -5,9 +5,11 @@ import {
   getBotApiKey,
   pollInspirationUntilComplete,
 } from "@/lib/inspiration";
+import { askShaqClaude, limitTelegramText } from "@/lib/anthropic";
 import { getUserAccess, type TelegramAccess } from "@/lib/telegram-auth";
 import { getCommand, getTelegramHelpText } from "@/lib/telegram-help";
 import { sendTelegramChatAction, sendTelegramMessage } from "@/lib/telegram";
+import { sharpenCaption } from "@/lib/voice";
 
 export type TelegramUser = {
   id?: number;
@@ -38,7 +40,7 @@ type ProcessTelegramUpdateOptions = {
 };
 
 export type ProcessTelegramUpdateResult = {
-  followUp?: Promise<void>;
+  followUp?: () => Promise<void>;
   ok: true;
   replied: boolean;
 };
@@ -49,6 +51,10 @@ function getMessage(update: TelegramUpdate): TelegramMessage | undefined {
   return update.message ?? update.edited_message;
 }
 
+function looksLikeCaptionDraft(text: string): boolean {
+  return text.length > 20 && !extractFirstUrl(text);
+}
+
 async function replyInChunks(
   chatId: number,
   text: string,
@@ -56,6 +62,21 @@ async function replyInChunks(
 ): Promise<void> {
   for (let start = 0; start < text.length; start += TELEGRAM_MESSAGE_LIMIT) {
     await sendMessage(chatId, text.slice(start, start + TELEGRAM_MESSAGE_LIMIT));
+  }
+}
+
+async function runFollowUp(
+  chatId: number,
+  work: () => Promise<string>,
+  sendChatAction: (chatId: number, action: "typing") => Promise<unknown>,
+  sendMessage: (chatId: number, text: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await sendChatAction(chatId, "typing");
+    await sendMessage(chatId, limitTelegramText(await work()));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    await sendMessage(chatId, `Something broke: ${detail}`);
   }
 }
 
@@ -92,45 +113,85 @@ export async function processTelegramUpdate(
 
   const command = getCommand(text);
 
-  if (command !== "/start" && command !== "/help" && access === "write") {
-    const url = extractFirstUrl(text);
+  if (command === "/start" || command === "/help") {
+    await sendChatAction(chatId, "typing");
+    await replyInChunks(
+      chatId,
+      await getTelegramHelpText(text, faqPath),
+      sendMessage,
+    );
 
-    if (url) {
-      const apiKey = getInspirationApiKey();
-      const job = await createInspiration({
-        apiBaseUrl,
-        apiKey,
-        telegramChatId: chatId,
-        url,
-      });
-      const followUp = pollInspirationUntilComplete({
-        apiBaseUrl,
-        apiKey,
-        id: job.id,
-      })
-        .then(async (result) => {
+    return { ok: true, replied: true };
+  }
+
+  const url = extractFirstUrl(text);
+
+  if (url) {
+    if (access === "write") {
+      const followUp = async () => {
+        try {
+          const apiKey = getInspirationApiKey();
+          const job = await createInspiration({
+            apiBaseUrl,
+            apiKey,
+            telegramChatId: chatId,
+            url,
+          });
+
+          await sendChatAction(chatId, "typing");
+          await sendMessage(chatId, "Saved! Analysing…");
+
+          const result = await pollInspirationUntilComplete({
+            apiBaseUrl,
+            apiKey,
+            id: job.id,
+          });
+
           await sendMessage(chatId, formatInspirationSummary(result));
-        })
-        .catch(async (error: unknown) => {
+        } catch (error: unknown) {
           const detail =
             error instanceof Error ? error.message : "Unknown error";
           await sendMessage(chatId, `Analysis failed: ${detail}`);
-        });
-
-      await sendChatAction(chatId, "typing");
-      await sendMessage(chatId, "Saved! Analysing…");
+        }
+      };
 
       return { followUp, ok: true, replied: true };
     }
+
+    await sendChatAction(chatId, "typing");
+    await sendMessage(chatId, `[${access}] ${text}`);
+
+    return { ok: true, replied: true };
   }
 
-  const replyText =
-    command === "/start" || command === "/help"
-      ? await getTelegramHelpText(text, faqPath)
-      : `[${access}] ${text}`;
+  if (looksLikeCaptionDraft(text)) {
+    return {
+      followUp: () =>
+        runFollowUp(
+          chatId,
+          () =>
+            sharpenCaption({
+              apiBaseUrl,
+              apiKey: getInspirationApiKey(),
+              text,
+            }),
+          sendChatAction,
+          sendMessage,
+        ),
+      ok: true,
+      replied: true,
+    };
+  }
 
-  await sendChatAction(chatId, "typing");
-  await replyInChunks(chatId, replyText, sendMessage);
-
-  return { ok: true, replied: true };
+  return {
+    followUp: () =>
+      runFollowUp(
+        chatId,
+        () => askShaqClaude(text),
+        sendChatAction,
+        sendMessage,
+      ),
+    ok: true,
+    replied: true,
+  };
 }

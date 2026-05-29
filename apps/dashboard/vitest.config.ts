@@ -14,6 +14,7 @@ export default defineConfig({
       'lib/telegram-auth.test.ts',
       'lib/telegram-help.test.ts',
       'lib/inspiration.test.ts',
+      'lib/anthropic.test.ts',
     ],
   },
   resolve: {

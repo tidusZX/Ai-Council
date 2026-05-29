@@ -26,8 +26,9 @@ export async function POST(request: Request) {
   });
 
   if (result.followUp) {
+    const followUp = result.followUp
     after(async () => {
-      await result.followUp;
+      await followUp()
     });
   }
 
