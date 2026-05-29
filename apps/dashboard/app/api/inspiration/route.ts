@@ -55,7 +55,7 @@ const BOT_API_KEY =
 const PostBody = z.object({
   url: z.url(),
   source: z.enum(['telegram', 'dashboard']).default('dashboard'),
-  telegram_chat_id: z.string().optional(),
+  telegram_chat_id: z.coerce.string().optional(), // bot sends as number, coerce to string
   telegram_access: z.string().optional(),
 })
 
