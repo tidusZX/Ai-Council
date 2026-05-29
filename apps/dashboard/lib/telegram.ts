@@ -33,8 +33,7 @@ async function callTelegramApi<T>(
   const data = (await response.json()) as TelegramApiResponse<T>;
 
   if (!response.ok || !data.ok) {
-    const msg = !data.ok ? data.description : undefined
-    throw new Error(msg ?? `Telegram API ${method} failed`);
+    const msg = !data.ok ? data.description : undefined; throw new Error(msg ?? `Telegram API ${method} failed`);
   }
 
   return data.result;

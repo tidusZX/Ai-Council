@@ -1,3 +1,10 @@
+import {
+  createInspiration,
+  extractFirstUrl,
+  formatInspirationSummary,
+  getBotApiKey,
+  pollInspirationUntilComplete,
+} from "@/lib/inspiration";
 import { getUserAccess, type TelegramAccess } from "@/lib/telegram-auth";
 import { getCommand, getTelegramHelpText } from "@/lib/telegram-help";
 import { sendTelegramChatAction, sendTelegramMessage } from "@/lib/telegram";
@@ -22,13 +29,16 @@ export type TelegramUpdate = {
 };
 
 type ProcessTelegramUpdateOptions = {
+  apiBaseUrl: string;
   faqPath: string;
+  getInspirationApiKey?: () => string;
   getAccess?: (userId: number) => TelegramAccess | null;
   sendChatAction?: (chatId: number, action: "typing") => Promise<unknown>;
   sendMessage?: (chatId: number, text: string) => Promise<unknown>;
 };
 
 export type ProcessTelegramUpdateResult = {
+  followUp?: Promise<void>;
   ok: true;
   replied: boolean;
 };
@@ -52,7 +62,9 @@ async function replyInChunks(
 export async function processTelegramUpdate(
   update: TelegramUpdate,
   {
+    apiBaseUrl,
     faqPath,
+    getInspirationApiKey = getBotApiKey,
     getAccess = getUserAccess,
     sendChatAction = sendTelegramChatAction,
     sendMessage = sendTelegramMessage,
@@ -80,12 +92,36 @@ export async function processTelegramUpdate(
 
   const command = getCommand(text);
 
-  // Detect reel/video URLs — save them to the inspiration log automatically.
-  if (isVideoUrl(text)) {
-    await sendChatAction(chatId, "typing");
-    const reply = await saveInspirationFromTelegram(text, chatId, access);
-    await replyInChunks(chatId, reply, sendMessage);
-    return { ok: true, replied: true };
+  if (command !== "/start" && command !== "/help" && access === "write") {
+    const url = extractFirstUrl(text);
+
+    if (url) {
+      const apiKey = getInspirationApiKey();
+      const job = await createInspiration({
+        apiBaseUrl,
+        apiKey,
+        telegramChatId: chatId,
+        url,
+      });
+      const followUp = pollInspirationUntilComplete({
+        apiBaseUrl,
+        apiKey,
+        id: job.id,
+      })
+        .then(async (result) => {
+          await sendMessage(chatId, formatInspirationSummary(result));
+        })
+        .catch(async (error: unknown) => {
+          const detail =
+            error instanceof Error ? error.message : "Unknown error";
+          await sendMessage(chatId, `Analysis failed: ${detail}`);
+        });
+
+      await sendChatAction(chatId, "typing");
+      await sendMessage(chatId, "Saved! Analysing…");
+
+      return { followUp, ok: true, replied: true };
+    }
   }
 
   const replyText =
@@ -97,70 +133,4 @@ export async function processTelegramUpdate(
   await replyInChunks(chatId, replyText, sendMessage);
 
   return { ok: true, replied: true };
-}
-
-/**
- * Returns true if the message text looks like a video URL from a
- * supported platform (Instagram, TikTok, YouTube Shorts).
- */
-function isVideoUrl(text: string): boolean {
-  try {
-    const url = new URL(text)
-    return (
-      /instagram\.com\/(reel|p)\//i.test(url.pathname) ||
-      /tiktok\.com\/@.+\/video\//i.test(url.href) ||
-      /youtube\.com\/shorts\//i.test(url.href) ||
-      /youtu\.be\//i.test(url.href)
-    )
-  } catch {
-    return false
-  }
-}
-
-/**
- * POST to /api/inspiration to kick off analysis and return a
- * Telegram-friendly acknowledgement. Uses the dashboard's own API
- * key for bot-to-API auth.
- */
-async function saveInspirationFromTelegram(
-  url: string,
-  chatId: number,
-  access: TelegramAccess,
-): Promise<string> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  const botApiKey = process.env.TELEGRAM_BOT_API_KEY ?? ""
-
-  if (!botApiKey) {
-    return "⚠️ Bot API key not configured — can't save to inspiration log."
-  }
-
-  try {
-    const res = await fetch(`${appUrl}/api/inspiration`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-bot-api-key": botApiKey,
-      },
-      body: JSON.stringify({
-        url,
-        source: "telegram",
-        telegram_chat_id: String(chatId),
-        telegram_access: access,
-      }),
-    })
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      return `❌ Failed to save: ${body?.error ?? res.status}`
-    }
-
-    const { id } = await res.json()
-    return (
-      `✅ Saved! Analysing now (~60s)...\n\n` +
-      `I'll send the summary here when it's ready.\n` +
-      `View full log: ${appUrl}/inspiration`
-    )
-  } catch (e) {
-    return `❌ Error: ${e instanceof Error ? e.message : String(e)}`
-  }
 }

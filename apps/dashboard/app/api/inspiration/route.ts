@@ -44,7 +44,13 @@ function extractHandle(url: string): string | null {
   return null
 }
 
-const BOT_API_KEY = process.env.TELEGRAM_BOT_API_KEY ?? ''
+// Accept all three naming conventions so it works with both Codex's bot
+// (BOT_API_KEY / INSPIRATION_BOT_API_KEY) and any existing env (TELEGRAM_BOT_API_KEY).
+const BOT_API_KEY =
+  process.env.BOT_API_KEY ??
+  process.env.INSPIRATION_BOT_API_KEY ??
+  process.env.TELEGRAM_BOT_API_KEY ??
+  ''
 
 const PostBody = z.object({
   url: z.url(),

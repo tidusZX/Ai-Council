@@ -8,6 +8,13 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    // Codex's node:test files are excluded — they run with `node --test`, not vitest
+    exclude: [
+      '**/node_modules/**',
+      'lib/telegram-auth.test.ts',
+      'lib/telegram-help.test.ts',
+      'lib/inspiration.test.ts',
+    ],
   },
   resolve: {
     alias: {
