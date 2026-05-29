@@ -66,8 +66,18 @@ function getMessage(update: TelegramUpdate): TelegramMessage | undefined {
   return update.message ?? update.edited_message;
 }
 
+// Question words and conversational openers — these should go to Claude chat,
+// NOT to Ember caption sharpening. A real caption draft never starts with
+// "what", "who", "why", "tell me", "can you", etc. and never ends with "?".
+const CONVERSATIONAL_PREFIXES =
+  /^(what|who|where|when|why|how|tell|can|could|do|does|did|is|are|was|were|will|would|should|help|explain|i am|i'm|i was|i've|i need|i want|let's|just|so |oh |hey |hi |hello|okay|ok )/i;
+
 function looksLikeCaptionDraft(text: string): boolean {
-  return text.length > 20 && !extractFirstUrl(text);
+  if (text.length <= 20) return false;
+  if (extractFirstUrl(text)) return false;
+  if (text.trimEnd().endsWith("?")) return false;          // questions → Claude
+  if (CONVERSATIONAL_PREFIXES.test(text)) return false;    // conversation → Claude
+  return true;
 }
 
 async function replyInChunks(
