@@ -9,7 +9,7 @@ type AnthropicMessageResponse = {
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const CLAUDE_MODEL = "claude-3-5-haiku-20241022";
+const CLAUDE_MODEL = process.env.ANALYSIS_MODEL ?? "claude-sonnet-4-5";
 const TELEGRAM_RESPONSE_LIMIT = 500;
 
 const SHAQ_SYSTEM_PROMPT = [

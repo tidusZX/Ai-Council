@@ -35,7 +35,7 @@ export async function sharpenCaption({
       "x-api-key": apiKey,
     },
     body: JSON.stringify({
-      model: "claude-3-5-haiku-20241022",
+      model: process.env.ANALYSIS_MODEL ?? "claude-sonnet-4-5",
       max_tokens: 200,
       system: EMBER_TELEGRAM_PROMPT,
       messages: [{ role: "user", content: `Draft caption:\n\n${text}` }],
