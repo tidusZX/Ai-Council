@@ -1044,7 +1044,7 @@ async function handleMapsCategoryMode(
         discovery_source: source,
         discovery_metadata: discoveryMetadata,
         diagnosis: diagnosisWithScore,
-        opportunity_score: score.score * 10,
+        opportunity_score: score.score,
       })
       .select('id, business_name')
       .single()

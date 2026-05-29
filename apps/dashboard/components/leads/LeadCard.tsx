@@ -69,9 +69,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 function scoreColor(score: number | null | undefined): string {
   if (score == null) return 'text-zinc-400'
-  if (score >= 80) return 'text-emerald-700'
-  if (score >= 60) return 'text-amber-700'
-  if (score >= 40) return 'text-orange-700'
+  if (score >= 8) return 'text-emerald-700'
+  if (score >= 6) return 'text-amber-700'
+  if (score >= 4) return 'text-orange-700'
   return 'text-rose-700'
 }
 

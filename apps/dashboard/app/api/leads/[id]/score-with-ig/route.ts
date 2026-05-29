@@ -12,7 +12,7 @@
  *   4. Pass post image URLs + cadence into the ICP scorer via vision
  *   5. Persist verdict to lead.diagnosis.icpScore +
  *      lead.discovery_metadata.latest_post_image_urls + cadence_per_week
- *      Set opportunity_score = verdict.score * 10.
+ *      Set opportunity_score = verdict.score (1-10).
  *
  * Body: { igHandle?: string, postsToFetch?: number = 12 }
  */
@@ -266,7 +266,7 @@ export async function POST(
     .update({
       diagnosis: updatedDiagnosis,
       discovery_metadata: updatedMetadata,
-      opportunity_score: verdict.score * 10,
+      opportunity_score: verdict.score,
       ig_handle: igHandle,
     })
     .eq('id', id)

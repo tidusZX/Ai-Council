@@ -69,7 +69,7 @@ export async function POST(
     `Business: ${lead.business_name}`,
     lead.ig_handle ? `IG handle: @${lead.ig_handle}` : null,
     lead.website ? `Website: ${lead.website}` : null,
-    `Opportunity score: ${lead.opportunity_score ?? '—'}/100`,
+    `Opportunity score: ${lead.opportunity_score ?? '—'}/10`,
     '',
     diagnosis.outreach_angle
       ? `Outreach angle (use as the seed for the opener): ${diagnosis.outreach_angle}`

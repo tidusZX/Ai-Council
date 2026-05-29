@@ -87,7 +87,7 @@ export async function POST(
   }
   if (typeof diagnosis.overall_opportunity_score === 'number') {
     lines.push(
-      `Existing visual-brand diagnosis score: ${diagnosis.overall_opportunity_score}/100`
+      `Existing visual-brand diagnosis score: ${diagnosis.overall_opportunity_score}/10`
     )
   }
   if (
@@ -126,7 +126,7 @@ export async function POST(
   }
 
   // Persist: write verdict into diagnosis.icpScore, update opportunity_score.
-  // Multiply 1-10 → 10-100 for the existing opportunity_score column.
+  // Store score as-is (1-10). Display layer uses same scale.
   const updatedDiagnosis = {
     ...diagnosis,
     icpScore: {
@@ -139,7 +139,7 @@ export async function POST(
     .from('leads')
     .update({
       diagnosis: updatedDiagnosis,
-      opportunity_score: verdict.score * 10,
+      opportunity_score: verdict.score,
     })
     .eq('id', id)
     .eq('owner_id', user.id)
