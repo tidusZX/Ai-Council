@@ -15,6 +15,9 @@ export default defineConfig({
       'lib/telegram-help.test.ts',
       'lib/inspiration.test.ts',
       'lib/anthropic.test.ts',
+      'lib/command-centre.test.ts',
+      'lib/shaq-os.test.ts',
+      'lib/yap.test.ts',
     ],
   },
   resolve: {

@@ -41,6 +41,9 @@
     "lib/telegram-auth.test.ts",
     "lib/telegram-help.test.ts",
     "lib/inspiration.test.ts",
-    "lib/anthropic.test.ts"
+    "lib/anthropic.test.ts",
+    "lib/yap.test.ts",
+    "lib/shaq-os.test.ts",
+    "lib/command-centre.test.ts"
   ]
 }

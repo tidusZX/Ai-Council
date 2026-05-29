@@ -10,6 +10,16 @@ import { getUserAccess, type TelegramAccess } from "@/lib/telegram-auth";
 import { getCommand, getTelegramHelpText } from "@/lib/telegram-help";
 import { sendTelegramChatAction, sendTelegramMessage } from "@/lib/telegram";
 import { sharpenCaption } from "@/lib/voice";
+import { extractYapText, formatYapSavedReply, saveYap } from "@/lib/yap";
+import {
+  extractCommandCentreText,
+  formatCommandCentreReply,
+  saveCommandCentreUpdate,
+} from "@/lib/command-centre";
+import {
+  generateCaptionFromTelegramPhoto,
+  type TelegramPhotoSize,
+} from "@/lib/photo-caption";
 
 export type TelegramUser = {
   id?: number;
@@ -20,9 +30,11 @@ export type TelegramChat = {
 };
 
 export type TelegramMessage = {
+  caption?: string;
   text?: string;
   chat?: TelegramChat;
   from?: TelegramUser;
+  photo?: TelegramPhotoSize[];
 };
 
 export type TelegramUpdate = {
@@ -35,7 +47,10 @@ type ProcessTelegramUpdateOptions = {
   faqPath: string;
   getInspirationApiKey?: () => string;
   getAccess?: (userId: number) => TelegramAccess | null;
-  sendChatAction?: (chatId: number, action: "typing") => Promise<unknown>;
+  sendChatAction?: (
+    chatId: number,
+    action: "typing" | "upload_photo",
+  ) => Promise<unknown>;
   sendMessage?: (chatId: number, text: string) => Promise<unknown>;
 };
 
@@ -68,7 +83,10 @@ async function replyInChunks(
 async function runFollowUp(
   chatId: number,
   work: () => Promise<string>,
-  sendChatAction: (chatId: number, action: "typing") => Promise<unknown>,
+  sendChatAction: (
+    chatId: number,
+    action: "typing" | "upload_photo",
+  ) => Promise<unknown>,
   sendMessage: (chatId: number, text: string) => Promise<unknown>,
 ): Promise<void> {
   try {
@@ -77,6 +95,78 @@ async function runFollowUp(
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
     await sendMessage(chatId, `Something broke: ${detail}`);
+  }
+}
+
+async function runYapFollowUp(
+  chatId: number,
+  rawYap: string,
+  sendChatAction: (
+    chatId: number,
+    action: "typing" | "upload_photo",
+  ) => Promise<unknown>,
+  sendMessage: (chatId: number, text: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await sendChatAction(chatId, "typing");
+    await sendMessage(chatId, "Yapped. Logging it…");
+    await sendChatAction(chatId, "typing");
+    await sendMessage(
+      chatId,
+      limitTelegramText(formatYapSavedReply(await saveYap(rawYap))),
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    await sendMessage(chatId, `Yap failed: ${detail}`);
+  }
+}
+
+async function runCommandCentreFollowUp(
+  chatId: number,
+  rawUpdate: string,
+  sendChatAction: (
+    chatId: number,
+    action: "typing" | "upload_photo",
+  ) => Promise<unknown>,
+  sendMessage: (chatId: number, text: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await sendChatAction(chatId, "typing");
+    await sendMessage(chatId, "Updating Command Centre…");
+    await sendChatAction(chatId, "typing");
+    await sendMessage(
+      chatId,
+      limitTelegramText(
+        formatCommandCentreReply(await saveCommandCentreUpdate(rawUpdate)),
+      ),
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    await sendMessage(chatId, `Command Centre update failed: ${detail}`);
+  }
+}
+
+async function runPhotoFollowUp(
+  chatId: number,
+  photos: TelegramPhotoSize[],
+  caption: string | undefined,
+  sendChatAction: (
+    chatId: number,
+    action: "typing" | "upload_photo",
+  ) => Promise<unknown>,
+  sendMessage: (chatId: number, text: string) => Promise<unknown>,
+): Promise<void> {
+  try {
+    await sendChatAction(chatId, "upload_photo");
+    await sendMessage(chatId, "Got the photo. Running it through SHAQ OS…");
+    await sendChatAction(chatId, "typing");
+    await sendMessage(
+      chatId,
+      await generateCaptionFromTelegramPhoto({ caption, photos }),
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    await sendMessage(chatId, `Photo analysis failed: ${detail}`);
   }
 }
 
@@ -105,6 +195,28 @@ export async function processTelegramUpdate(
     return { ok: true, replied: false };
   }
 
+  if (message.photo?.length) {
+    if (access !== "write") {
+      await sendChatAction(chatId, "typing");
+      await sendMessage(chatId, "Photo captioning is write-only for now.");
+
+      return { ok: true, replied: true };
+    }
+
+    return {
+      followUp: () =>
+        runPhotoFollowUp(
+          chatId,
+          message.photo ?? [],
+          message.caption?.trim() || undefined,
+          sendChatAction,
+          sendMessage,
+        ),
+      ok: true,
+      replied: true,
+    };
+  }
+
   const text = message.text?.trim() || "";
 
   if (!text) {
@@ -122,6 +234,67 @@ export async function processTelegramUpdate(
     );
 
     return { ok: true, replied: true };
+  }
+
+  if (command === "/yap") {
+    if (access !== "write") {
+      await sendChatAction(chatId, "typing");
+      await sendMessage(chatId, "Yap Log is write-only for now.");
+
+      return { ok: true, replied: true };
+    }
+
+    const rawYap = extractYapText(text);
+
+    if (!rawYap) {
+      await sendChatAction(chatId, "typing");
+      await sendMessage(
+        chatId,
+        "Send it like: /yap why are singaporeans so hateful",
+      );
+
+      return { ok: true, replied: true };
+    }
+
+    return {
+      followUp: () =>
+        runYapFollowUp(chatId, rawYap, sendChatAction, sendMessage),
+      ok: true,
+      replied: true,
+    };
+  }
+
+  if (command === "/cc") {
+    if (access !== "write") {
+      await sendChatAction(chatId, "typing");
+      await sendMessage(chatId, "Command Centre updates are write-only.");
+
+      return { ok: true, replied: true };
+    }
+
+    const rawUpdate = extractCommandCentreText(text);
+
+    if (!rawUpdate) {
+      await sendChatAction(chatId, "typing");
+      await sendMessage(
+        chatId,
+        "Send it like: /cc task follow up with Grain Traders Monday",
+      );
+
+      return { ok: true, replied: true };
+    }
+
+    return {
+      followUp: () =>
+        runCommandCentreFollowUp(
+          chatId,
+          rawUpdate,
+          sendChatAction,
+          sendMessage,
+        ),
+      ok: true,
+      replied: true,
+    };
   }
 
   const url = extractFirstUrl(text);
@@ -147,16 +320,11 @@ export async function processTelegramUpdate(
             id: job.id,
           });
 
-          const summary = formatInspirationSummary(result);
-          const link = `${apiBaseUrl}/inspiration`;
-          await sendMessage(chatId, `${summary}\n\n🔗 ${link}`);
+          await sendMessage(chatId, formatInspirationSummary(result));
         } catch (error: unknown) {
           const detail =
             error instanceof Error ? error.message : "Unknown error";
-          await sendMessage(
-            chatId,
-            `❌ Couldn't analyse that one.\n\n${detail}\n\nTry a different reel or check the link is public.`,
-          );
+          await sendMessage(chatId, `Analysis failed: ${detail}`);
         }
       };
 
