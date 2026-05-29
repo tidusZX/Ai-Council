@@ -2,6 +2,7 @@ import path from 'node:path'
 import type { Json } from '@shaq-os/database-types'
 import { loadEnv } from './env'
 import { fetchMetadata, downloadVideo, inferPlatform } from './yt-dlp'
+import { downloadInstagramReel, isInstagramUrl } from './apify-instagram'
 import { extractKeyframes } from './ffmpeg'
 import { transcribe } from './whisper'
 import { uploadKeyframes } from './storage'
@@ -28,17 +29,29 @@ export async function runPipeline(args: {
     log(args.job_id, 'downloading')
     await updateJob(args.job_id, { status: 'downloading' })
 
-    const metadata = await fetchMetadata(args.url)
-    const duration = typeof metadata.duration === 'number' ? metadata.duration : null
-    if (duration !== null && duration > MAX_DURATION_SECONDS) {
-      throw new Error(
-        `Video too long (${Math.round(duration)}s). MVP cap is ${MAX_DURATION_SECONDS}s.`
-      )
+    let videoPath: string
+    let metadata: Awaited<ReturnType<typeof fetchMetadata>>
+
+    if (isInstagramUrl(args.url)) {
+      // Instagram blocks yt-dlp — use Apify which handles auth on their side
+      log(args.job_id, 'instagram detected — using apify downloader')
+      const result = await downloadInstagramReel(args.url, jobDir, env.APIFY_API_TOKEN)
+      videoPath = result.videoPath
+      metadata = result.metadata
+    } else {
+      // TikTok, YouTube, Vimeo, etc. — yt-dlp works fine
+      metadata = await fetchMetadata(args.url)
+      const duration = typeof metadata.duration === 'number' ? metadata.duration : null
+      if (duration !== null && duration > MAX_DURATION_SECONDS) {
+        throw new Error(
+          `Video too long (${Math.round(duration)}s). MVP cap is ${MAX_DURATION_SECONDS}s.`
+        )
+      }
+      videoPath = await downloadVideo(args.url, jobDir)
     }
 
-    const videoPath = await downloadVideo(args.url, jobDir)
-
     // ---- 2. extract keyframes ----
+    const duration = typeof metadata.duration === 'number' ? metadata.duration : null
     log(args.job_id, 'extracting')
     await updateJob(args.job_id, {
       status: 'extracting',

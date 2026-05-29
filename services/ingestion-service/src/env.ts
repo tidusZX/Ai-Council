@@ -8,6 +8,7 @@ const EnvSchema = z.object({
   INGESTION_API_KEY: z.string().min(16, 'INGESTION_API_KEY must be at least 16 chars'),
   ANALYSIS_API_KEY: z.string().min(16, 'ANALYSIS_API_KEY must be at least 16 chars'),
   OPENAI_API_KEY: z.string().min(1),
+  APIFY_API_TOKEN: z.string().min(1),
   KEYFRAME_BUCKET: z.string().default('video-keyframes'),
   PORT: z.coerce.number().default(3001),
 })
