@@ -147,7 +147,9 @@ export async function processTelegramUpdate(
             id: job.id,
           });
 
-          await sendMessage(chatId, formatInspirationSummary(result));
+          const summary = formatInspirationSummary(result);
+          const link = `${apiBaseUrl}/inspiration`;
+          await sendMessage(chatId, `${summary}\n\n🔗 ${link}`);
         } catch (error: unknown) {
           const detail =
             error instanceof Error ? error.message : "Unknown error";
