@@ -15,8 +15,9 @@ const BOT_KEY =
   process.env.TELEGRAM_BOT_API_KEY ??
   ''
 
-// Parent page: the My Tasks Notion page we know exists
-const PARENT_PAGE_ID = '36f940f1a39180909c73c39238da7cb3'
+// Parent: use the content DB's own parent — the integration already has access there.
+// Falls back to NOTION_DATABASE_ID's parent if PARENT_PAGE_ID override is set via query.
+const FALLBACK_PARENT = process.env.NOTION_DATABASE_ID ?? ''
 
 export async function GET(req: Request) {
   const incomingKey = req.headers.get('x-bot-api-key') ?? req.headers.get('x-setup-token')
@@ -31,6 +32,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'NOTION_API_KEY not set' }, { status: 503 })
   }
 
+  // Find a page the integration can access by looking at the content DB's parent
+  const url = new URL(req.url)
+  const parentOverride = url.searchParams.get('parent')
+
+  let parentId = parentOverride ?? ''
+  if (!parentId && FALLBACK_PARENT) {
+    // Get the content DB to find its parent page
+    const dbRes = await fetch(`https://api.notion.com/v1/databases/${FALLBACK_PARENT}`, {
+      headers: { Authorization: `Bearer ${notionKey}`, 'Notion-Version': '2022-06-28' },
+    })
+    if (dbRes.ok) {
+      const db = await dbRes.json() as { parent?: { type?: string; page_id?: string; database_id?: string } }
+      parentId = db.parent?.page_id ?? db.parent?.database_id ?? ''
+    }
+  }
+
+  if (!parentId) {
+    return NextResponse.json({
+      error: 'No parent page found. Pass ?parent=<page_id> to specify.',
+    }, { status: 400 })
+  }
+
+  const parentType = parentId.length === 32 || parentId.includes('-') ? 'page_id' : 'database_id'
+
   const res = await fetch('https://api.notion.com/v1/databases', {
     method: 'POST',
     headers: {
@@ -40,7 +65,7 @@ export async function GET(req: Request) {
     },
     body: JSON.stringify({
       is_inline: true,
-      parent: { type: 'page_id', page_id: PARENT_PAGE_ID },
+      parent: { type: parentType, [parentType]: parentId },
       title: [{ type: 'text', text: { content: 'Yap Log' } }],
       properties: {
         Title: { title: {} },
