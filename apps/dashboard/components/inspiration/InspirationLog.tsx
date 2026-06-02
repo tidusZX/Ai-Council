@@ -55,6 +55,61 @@ export function InspirationLog({ initial }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+  const [clientName, setClientName] = useState('')
+  const [deckSubmitting, setDeckSubmitting] = useState(false)
+  const [deckError, setDeckError] = useState<string | null>(null)
+
+  const selectedCount = selected.size
+  const canBuildDeck = clientName.trim().length >= 2 && selectedCount >= 1
+
+  function toggleSelected(entryId: string) {
+    setDeckError(null)
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(entryId)) {
+        next.delete(entryId)
+      } else {
+        next.add(entryId)
+      }
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelected(new Set())
+    setDeckError(null)
+  }
+
+  async function handleBuildDeck(ev: React.FormEvent) {
+    ev.preventDefault()
+    if (!canBuildDeck) return
+
+    setDeckError(null)
+    setDeckSubmitting(true)
+    try {
+      const res = await fetch('/api/inspiration/deck', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          entry_ids: Array.from(selected),
+          client_name: clientName.trim(),
+        }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.message || body?.error || `Error ${res.status}`)
+      }
+      if (!body?.design_url) {
+        throw new Error('Deck response did not include a design URL')
+      }
+      window.open(body.design_url, '_blank', 'noopener,noreferrer')
+    } catch (e) {
+      setDeckError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDeckSubmitting(false)
+    }
+  }
 
   // Poll for processing entries every 10s
   const pollProcessing = useCallback(async () => {
@@ -148,7 +203,7 @@ export function InspirationLog({ initial }: Props) {
             </p>
           ) : null}
           <p className="text-xs text-zinc-400">
-            Or send any reel link to your Telegram bot — it'll log it here
+            Or send any reel link to your Telegram bot — it&apos;ll log it here
             automatically.
           </p>
         </form>
@@ -168,7 +223,9 @@ export function InspirationLog({ initial }: Props) {
             <InspirationCard
               key={entry.id}
               entry={entry}
+              isSelected={selected.has(entry.id)}
               isExpanded={expanded === entry.id}
+              onSelect={() => toggleSelected(entry.id)}
               onToggle={() =>
                 setExpanded(expanded === entry.id ? null : entry.id)
               }
@@ -176,26 +233,95 @@ export function InspirationLog({ initial }: Props) {
           ))}
         </div>
       )}
+
+      {selectedCount >= 1 ? (
+        <div className="fixed inset-x-0 bottom-4 z-30 px-4">
+          <form
+            onSubmit={handleBuildDeck}
+            className="mx-auto flex max-w-3xl flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-lg shadow-zinc-900/10 sm:flex-row sm:flex-wrap sm:items-center"
+          >
+            <div className="shrink-0 text-sm font-medium text-zinc-900">
+              {selectedCount} selected
+            </div>
+            <div className="min-w-48 flex-1">
+              <Input
+                value={clientName}
+                onChange={(e) => {
+                  setClientName(e.target.value)
+                  setDeckError(null)
+                }}
+                placeholder="Client name…"
+                disabled={deckSubmitting}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="submit"
+                disabled={!canBuildDeck}
+                loading={deckSubmitting}
+                className="rounded-xl"
+              >
+                {deckSubmitting ? 'Building…' : 'Build deck'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={clearSelection}
+                disabled={deckSubmitting}
+                className="rounded-xl"
+              >
+                Clear
+              </Button>
+            </div>
+            {deckError ? (
+              <p className="text-sm text-red-700 sm:basis-full">
+                {deckError}
+              </p>
+            ) : null}
+          </form>
+        </div>
+      ) : null}
     </div>
   )
 }
 
 function InspirationCard({
   entry,
+  isSelected,
   isExpanded,
+  onSelect,
   onToggle,
 }: {
   entry: InspirationEntry
+  isSelected: boolean
   isExpanded: boolean
+  onSelect: () => void
   onToggle: () => void
 }) {
   const icon = PLATFORM_ICON[entry.platform ?? 'other'] ?? '🎬'
   const analysis = entry.analysis
+  const isSelectable = entry.status === 'complete'
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
+    <div className="relative rounded-xl border border-zinc-200 bg-white overflow-hidden">
+      {isSelectable ? (
+        <label className="absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border border-zinc-200 bg-white shadow-sm">
+          <span className="sr-only">Select inspiration entry</span>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onSelect}
+            className="h-4 w-4 rounded border-zinc-300 text-zinc-900 accent-zinc-900"
+          />
+        </label>
+      ) : null}
       {/* Header */}
-      <div className="flex items-start gap-3 p-5">
+      <div
+        className={`flex items-start gap-3 p-5 ${
+          isSelectable ? 'pl-12' : ''
+        }`}
+      >
         {/* Keyframes strip */}
         {entry.keyframe_urls.length > 0 ? (
           <div className="flex gap-1 shrink-0">
